@@ -1,0 +1,20 @@
+{
+	"manifest_version": 3,
+	"name": "Douyin Buyin Monitor",
+	"version": "1.1",
+	"description": "Listen and log requests on buyin.jinritemai.com",
+	"permissions": [],
+	"host_permissions": ["*://buyin.jinritemai.com/*"],
+	"background": {
+		"service_worker": "background.js"
+	},
+	"content_scripts": [
+		{
+			"matches": ["*://buyin.jinritemai.com/*"],
+			"js": ["content.js"],
+			"run_at": "document_start",
+			"world": "MAIN"
+		}
+	],
+	"web_accessible_resources": []
+}
