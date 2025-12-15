@@ -221,6 +221,23 @@
 		});
 	}
 
+	/**
+	 * 格式化数字：万、百万、千万，保留两位小数
+	 */
+	function formatUnitNumber(num) {
+		num = Number(num);
+		if (isNaN(num)) return '0.00';
+
+		if (num >= 10000000) {
+			return (num / 10000000).toFixed(2) + '千万';
+		} else if (num >= 1000000) {
+			return (num / 1000000).toFixed(2) + '百万';
+		} else if (num >= 10000) {
+			return (num / 10000).toFixed(2) + '万';
+		}
+		return num.toFixed(2);
+	}
+
 	function showPopup(results, days) {
 		const oldPopup = document.getElementById('douyin-monitor-popup');
 		if (oldPopup) oldPopup.remove();
@@ -232,11 +249,12 @@
 		mask.style.left = '0';
 		mask.style.width = '100%';
 		mask.style.height = '100%';
-		mask.style.backgroundColor = 'rgba(0,0,0,0.5)';
+		// mask.style.backgroundColor = 'rgba(0,0,0,0.5)';
 		mask.style.zIndex = '10000';
 		mask.style.display = 'flex';
 		mask.style.justifyContent = 'center';
 		mask.style.alignItems = 'center';
+		mask.style.pointerEvents = 'none';
 
 		const container = document.createElement('div');
 		container.style.backgroundColor = '#fff';
@@ -247,6 +265,7 @@
 		container.style.maxWidth = '90%';
 		container.style.maxHeight = '90vh';
 		container.style.overflowY = 'auto';
+		container.style.pointerEvents = 'auto';
 
 		const title = document.createElement('h3');
 		title.innerText = '数据分析报告';
@@ -281,14 +300,14 @@
 			const displaySalesAmount = (salesAmount / 100).toFixed(2);
 			const displayUnitPrice =
 				sales > 0 ? (salesAmount / 100 / sales).toFixed(2) : '0.00';
-
+			const displaySales = formatUnitNumber(sales);
 			tbodyHtml += `
 				<tr>
 					<td style="padding: 10px; border: 1px solid #ddd; text-align: center;">${days[index]}天</td>
-					<td style="padding: 10px; border: 1px solid #ddd; text-align: center;">¥${displaySalesAmount}${d.format_sales_amount}</td>
-					<td style="padding: 10px; border: 1px solid #ddd; text-align: center;">${sales}</td>
+					<td style="padding: 10px; border: 1px solid #ddd; text-align: center;">${d.format_sales_amount}</td>
+					<td style="padding: 10px; border: 1px solid #ddd; text-align: center;">${displaySales}</td>
 					<td style="padding: 10px; border: 1px solid #ddd; text-align: center;">${authors}</td>
-					<td style="padding: 10px; border: 1px solid #ddd; text-align: center;">${displaySalesAmount}/${sales}=¥${displayUnitPrice}</td>
+					<td style="padding: 10px; border: 1px solid #ddd; text-align: center;">${displaySalesAmount} / ${sales} = ¥${displayUnitPrice}</td>
 				</tr>
 			`;
 		});
@@ -309,11 +328,11 @@
 
 		mask.appendChild(container);
 		document.body.appendChild(mask);
-		mask.onclick = (e) => {
-			if (e.target === mask) {
-				mask.style.display = 'none';
-			}
-		};
+		// mask.onclick = (e) => {
+		// 	if (e.target === mask) {
+		// 		mask.style.display = 'none';
+		// 	}
+		// };
 	}
 
 	createButton();
