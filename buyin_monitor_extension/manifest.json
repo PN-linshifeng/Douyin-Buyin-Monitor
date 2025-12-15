@@ -3,7 +3,7 @@
 	"name": "Douyin Buyin Monitor",
 	"version": "1.1",
 	"description": "Listen and log requests on buyin.jinritemai.com",
-	"permissions": [],
+	"permissions": ["webRequest"],
 	"host_permissions": ["*://buyin.jinritemai.com/*"],
 	"background": {
 		"service_worker": "background.js"
@@ -12,9 +12,13 @@
 		{
 			"matches": ["*://buyin.jinritemai.com/*"],
 			"js": ["content.js"],
-			"run_at": "document_start",
-			"world": "MAIN"
+			"run_at": "document_start"
 		}
 	],
-	"web_accessible_resources": []
+	"web_accessible_resources": [
+		{
+			"resources": ["injected.js"],
+			"matches": ["*://buyin.jinritemai.com/*"]
+		}
+	]
 }

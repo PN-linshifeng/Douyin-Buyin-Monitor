@@ -1,14 +1,72 @@
 (function () {
 	console.log(
-		'%c [Douyin Monitor] 主环境同步拦截启动 v1.3',
+		'%c [Douyin Monitor] Content Script Loaded v1.4 (Isolated World)',
 		'color: #4eca06; font-weight: bold; font-size: 14px;'
 	);
 
 	let capturedRequest = null;
-	const TARGET_URL_PART = 'decision/pack_detail';
 
 	// ===========================
-	// 1. UI 逻辑
+	// 0. 注入拦截脚本 (到 Main World)
+	// ===========================
+	function injectScript(file_path) {
+		var node = document.head || document.documentElement;
+		var script = document.createElement('script');
+		script.setAttribute('type', 'text/javascript');
+		script.setAttribute('src', file_path);
+		node.appendChild(script);
+	}
+	try {
+		injectScript(chrome.runtime.getURL('injected.js'));
+	} catch (e) {
+		console.error('[Douyin Monitor] Injection failed:', e);
+	}
+
+	// ===========================
+	// 1. 监听来自 Injected Script 的消息
+	// ===========================
+	const pendingRequests = new Map();
+
+	window.addEventListener(
+		'message',
+		function (event) {
+			if (event.source !== window) return;
+
+			// 处理捕获通知
+			if (event.data.type && event.data.type === 'DOUYIN_MONITOR_CAPTURE') {
+				console.log('[Douyin Monitor Content] Received capture data from Page');
+				const payload = event.data.payload;
+
+				capturedRequest = {
+					url: payload.url,
+					init: {
+						method: payload.method,
+						headers: payload.headers,
+						body: payload.body,
+					},
+				};
+				updateButtonState(true);
+			}
+
+			// 处理请求结果
+			if (event.data.type === 'DOUYIN_MONITOR_FETCH_RESULT') {
+				const {requestId, success, data, error} = event.data;
+				if (pendingRequests.has(requestId)) {
+					const {resolve, reject} = pendingRequests.get(requestId);
+					pendingRequests.delete(requestId);
+					if (success) {
+						resolve(data);
+					} else {
+						reject(new Error(error));
+					}
+				}
+			}
+		},
+		false
+	);
+
+	// ===========================
+	// 2. UI 逻辑
 	// ===========================
 	function createButton() {
 		if (document.getElementById('douyin-monitor-btn')) return;
@@ -54,9 +112,12 @@
 
 	async function handleBtnClick() {
 		if (!capturedRequest) {
-			alert(
-				'尚未捕获到接口请求。请按 F12 打开控制台查看日志，确认是否有 "[Douyin Monitor]" 开头的输出。'
-			);
+			alert('尚未捕获到接口请求。请等待页面加载完成或手动刷新。');
+			return;
+		}
+		const hasPopup = document.getElementById('douyin-monitor-popup');
+		if (hasPopup) {
+			hasPopup.style.display = 'flex';
 			return;
 		}
 
@@ -69,7 +130,8 @@
 			const ranges = [7, 30, 90];
 			const promises = ranges.map((days) => fetchDataFordays(days));
 			const results = await Promise.all(promises);
-			showPopup(results);
+
+			showPopup(results, ranges);
 		} catch (error) {
 			console.error('获取数据失败', error);
 			alert('获取数据失败: ' + error.message);
@@ -80,75 +142,86 @@
 	}
 
 	async function fetchDataFordays(days) {
-		const {url, init} = capturedRequest;
+		const {init} = capturedRequest;
+		let bodyStr = init.body;
 
-		let targetUrl = url;
-		// 按照需求：只保留 ewid，verifyFp，fp，msToken
+		// 1. 构造 Body
 		try {
-			const urlObj = new URL(url);
-			const keepParams = ['ewid', 'verifyFp', 'fp', 'msToken'];
-			const newParams = new URLSearchParams();
-
-			keepParams.forEach((key) => {
-				const val = urlObj.searchParams.get(key);
-				if (val !== null) {
-					newParams.set(key, val);
-				}
-			});
-
-			urlObj.search = newParams.toString();
-			targetUrl = urlObj.toString();
-		} catch (e) {
-			console.error('URL 参数处理出错', e);
-		}
-
-		let newInit = {...init};
-		// 处理 headers
-		if (init.headers) {
-			newInit.headers = JSON.parse(JSON.stringify(init.headers));
-		} else {
-			newInit.headers = {};
-		}
-
-		if (!newInit.headers['content-type'] && !newInit.headers['Content-Type']) {
-			newInit.headers['Content-Type'] = 'application/json';
-		}
-
-		// 修改 body
-		if (init.body) {
-			try {
-				let bodyStr = init.body;
-				if (typeof bodyStr !== 'string') {
-					bodyStr = JSON.stringify(bodyStr);
-				}
-
-				let bodyObj = JSON.parse(bodyStr);
-
-				// 安全地设置 time_range
-				const setTimeRange = (obj) => {
-					if (!obj) return;
-					if (obj.promotion_data_params)
-						obj.promotion_data_params.time_range = String(days);
-					if (obj.content_data_params)
-						obj.content_data_params.time_range = String(days);
-				};
-
-				if (bodyObj.dynamic_params) {
-					setTimeRange(bodyObj.dynamic_params);
-				}
-				newInit.body = JSON.stringify(bodyObj);
-			} catch (e) {
-				console.error('Body 解析/修改失败，将使用原始 Body', e);
+			if (typeof bodyStr !== 'string') {
+				bodyStr = JSON.stringify(bodyStr);
 			}
+			const originalBodyObj = JSON.parse(bodyStr);
+
+			const newBodyObj = {
+				scene_info: originalBodyObj.scene_info || {},
+				other_params: {
+					colonel_activity_id: '',
+				},
+				biz_id: originalBodyObj.biz_id,
+				biz_id_type: originalBodyObj.biz_id_type,
+				enter_from: originalBodyObj.enter_from,
+				data_module: 'dynamic',
+				dynamic_params: {
+					param_type: 9,
+					promotion_data_params: {
+						time_range: String(days),
+					},
+					content_data_params: {
+						time_range: String(days),
+					},
+				},
+				extra: {},
+			};
+
+			bodyStr = JSON.stringify(newBodyObj);
+		} catch (e) {
+			console.error('Body 构造失败', e);
+			throw e;
 		}
 
-		console.log(`正在请求 ${days} 天数据... URL:`, targetUrl);
-		const response = await window.originalFetch(targetUrl, newInit);
-		const json = await response.json();
-		return {days, data: json};
+		console.log(`正在请求 ${days} 天数据 (Via Injected Script)...`);
+
+		// 2. 直接使用捕获的原始 URL (假设 SDK 会自动补全签名参数)
+		const fullUrl = capturedRequest.url;
+
+		// 3. 处理 URL 参数：移除可能存在的旧签名，让 SDK 重新生成
+		const urlObj = new URL(fullUrl);
+		urlObj.searchParams.delete('a_bogus');
+		urlObj.searchParams.delete('msToken');
+		// 移除 verifyFp 和 fp，因为用户说这些也是 SDK 加上去的
+		urlObj.searchParams.delete('verifyFp');
+		urlObj.searchParams.delete('fp');
+
+		const targetUrl = urlObj.toString();
+
+		// 4. 委托 Main World 发起 Fetch (通过 XHR 触发 SDK 签名)
+		return new Promise((resolve, reject) => {
+			const requestId = Date.now() + '_' + Math.random();
+			pendingRequests.set(requestId, {resolve, reject});
+
+			window.postMessage(
+				{
+					type: 'DOUYIN_MONITOR_FETCH',
+					payload: {
+						requestId: requestId,
+						url: targetUrl,
+						body: bodyStr,
+					},
+				},
+				'*'
+			);
+
+			// 超时处理
+			setTimeout(() => {
+				if (pendingRequests.has(requestId)) {
+					pendingRequests.delete(requestId);
+					reject(new Error('Request timeout'));
+				}
+			}, 15000);
+		});
 	}
 
-	function showPopup(results) {
+	function showPopup(results, days) {
 		const oldPopup = document.getElementById('douyin-monitor-popup');
 		if (oldPopup) oldPopup.remove();
 
@@ -192,15 +265,15 @@
 					<th style="padding: 10px; border: 1px solid #ddd;">总销售额</th>
 					<th style="padding: 10px; border: 1px solid #ddd;">总销量</th>
 					<th style="padding: 10px; border: 1px solid #ddd;">出单达人数</th>
-					<th style="padding: 10px; border: 1px solid #ddd;">估算单价</th>
+					<th style="padding: 10px; border: 1px solid #ddd;">总销售额/总销量=估算单价</th>
 				</tr>
 			</thead>
 		`;
 
 		let tbodyHtml = '<tbody>';
-		results.forEach((item) => {
-			const d = item.data?.data?.model?.promotion_data?.calculate_data || {};
-
+		results.forEach((item, index) => {
+			const d = item?.data?.model?.promotion_data?.calculate_data || {};
+			console.log(item);
 			const salesAmount = d.sales_amount || 0;
 			const sales = d.sales || 0;
 			const authors = d.match_order_num || 0;
@@ -211,11 +284,11 @@
 
 			tbodyHtml += `
 				<tr>
-					<td style="padding: 10px; border: 1px solid #ddd; text-align: center;">${item.days}天</td>
-					<td style="padding: 10px; border: 1px solid #ddd; text-align: center;">¥${displaySalesAmount}</td>
+					<td style="padding: 10px; border: 1px solid #ddd; text-align: center;">${days[index]}天</td>
+					<td style="padding: 10px; border: 1px solid #ddd; text-align: center;">¥${displaySalesAmount}${d.format_sales_amount}</td>
 					<td style="padding: 10px; border: 1px solid #ddd; text-align: center;">${sales}</td>
 					<td style="padding: 10px; border: 1px solid #ddd; text-align: center;">${authors}</td>
-					<td style="padding: 10px; border: 1px solid #ddd; text-align: center;">¥${displayUnitPrice}</td>
+					<td style="padding: 10px; border: 1px solid #ddd; text-align: center;">${displaySalesAmount}/${sales}=¥${displayUnitPrice}</td>
 				</tr>
 			`;
 		});
@@ -229,109 +302,19 @@
 		closeBtn.style.marginTop = '20px';
 		closeBtn.style.padding = '8px 16px';
 		closeBtn.style.cursor = 'pointer';
-		closeBtn.onclick = () => mask.remove();
+		closeBtn.onclick = () => {
+			mask.style.display = 'none';
+		};
 		container.appendChild(closeBtn);
 
 		mask.appendChild(container);
 		document.body.appendChild(mask);
 		mask.onclick = (e) => {
-			if (e.target === mask) mask.remove();
+			if (e.target === mask) {
+				mask.style.display = 'none';
+			}
 		};
 	}
 
 	createButton();
-
-	// ===========================
-	// 捕获逻辑
-	// ===========================
-	function checkAndCapture(url, body, method, headers) {
-		if (url && url.indexOf(TARGET_URL_PART) !== -1) {
-			console.log('[Douyin Monitor] ！！！发现目标请求！！！');
-			console.log('Target URL:', url);
-
-			// 只要 URL 匹配就捕获，不检查 body
-			capturedRequest = {
-				url: url,
-				init: {
-					method: method || 'POST',
-					headers: headers,
-					body: typeof body === 'object' ? JSON.stringify(body) : body,
-				},
-			};
-			updateButtonState(true);
-		}
-	}
-
-	// ===========================
-	// 2. 拦截 XMLHttpRequest
-	// ===========================
-	const originalXHR = window.XMLHttpRequest;
-	window.originalXHR = originalXHR;
-
-	function XHRProxy() {
-		const xhr = new originalXHR();
-		const originalOpen = xhr.open;
-		const originalSetRequestHeader = xhr.setRequestHeader;
-		const originalSend = xhr.send;
-
-		xhr._requestHeaders = {};
-
-		xhr.open = function (method, url) {
-			this._monitorData = {method, url};
-			return originalOpen.apply(this, arguments);
-		};
-
-		xhr.setRequestHeader = function (header, value) {
-			this._requestHeaders[header] = value;
-			return originalSetRequestHeader.apply(this, arguments);
-		};
-
-		xhr.send = function (body) {
-			if (this._monitorData) {
-				checkAndCapture(
-					this._monitorData.url,
-					body,
-					this._monitorData.method,
-					this._requestHeaders
-				);
-			}
-			return originalSend.apply(this, arguments);
-		};
-
-		return xhr;
-	}
-	// 尽可能多地复制属性
-	for (let key in originalXHR) {
-		try {
-			XHRProxy[key] = originalXHR[key];
-		} catch (e) {}
-	}
-	XHRProxy.prototype = originalXHR.prototype;
-	window.XMLHttpRequest = XHRProxy;
-
-	// ===========================
-	// 3. 拦截 Fetch
-	// ===========================
-	const originalFetch = window.fetch;
-	window.originalFetch = originalFetch;
-
-	window.fetch = async function (...args) {
-		let [resource, config] = args;
-		let url = resource;
-
-		if (resource instanceof Request) {
-			url = resource.url;
-		}
-
-		if (typeof url === 'string') {
-			checkAndCapture(
-				url,
-				config ? config.body : null,
-				config ? config.method : 'GET',
-				config ? config.headers : null
-			);
-		}
-
-		return originalFetch.apply(this, args);
-	};
 })();
