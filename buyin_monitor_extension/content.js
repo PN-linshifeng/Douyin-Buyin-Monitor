@@ -249,7 +249,7 @@
 		mask.style.left = '0';
 		mask.style.width = '100%';
 		mask.style.height = '100%';
-		// mask.style.backgroundColor = 'rgba(0,0,0,0.5)';
+		// mask.style.backgroundColor = 'rgba(0,0,0,0.7)'; // Darker mask for focus
 		mask.style.zIndex = '10000';
 		mask.style.display = 'flex';
 		mask.style.justifyContent = 'center';
@@ -257,7 +257,8 @@
 		mask.style.pointerEvents = 'none';
 
 		const container = document.createElement('div');
-		container.style.backgroundColor = '#fff';
+		container.style.backgroundColor = '#1e1e1e'; // Dark bg
+		container.style.color = '#e0e0e0'; // Dark mode text
 		container.style.padding = '20px';
 		container.style.borderRadius = '8px';
 		container.style.boxShadow = '0 4px 20px rgba(0,0,0,0.2)';
@@ -270,7 +271,7 @@
 		const title = document.createElement('h3');
 		title.innerText = '数据分析报告';
 		title.style.marginBottom = '15px';
-		title.style.color = '#333';
+		title.style.color = '#ffffff'; // White title
 		container.appendChild(title);
 
 		const table = document.createElement('table');
@@ -278,13 +279,13 @@
 		table.style.borderCollapse = 'collapse';
 
 		const thead = `
-			<thead style="background-color: #f5f5f5;">
+			<thead style="background-color: #2d2d2d;">
 				<tr>
-					<th style="padding: 10px; border: 1px solid #ddd;">时间范围</th>
-					<th style="padding: 10px; border: 1px solid #ddd;">总销售额</th>
-					<th style="padding: 10px; border: 1px solid #ddd;">总销量</th>
-					<th style="padding: 10px; border: 1px solid #ddd;">出单达人数</th>
-					<th style="padding: 10px; border: 1px solid #ddd;">总销售额/总销量=估算单价</th>
+					<th style="padding: 10px; border: 1px solid #444; color: #e0e0e0;">时间范围</th>
+					<th style="padding: 10px; border: 1px solid #444; color: #e0e0e0;">总销售额</th>
+					<th style="padding: 10px; border: 1px solid #444; color: #e0e0e0;">总销量</th>
+					<th style="padding: 10px; border: 1px solid #444; color: #e0e0e0;">出单达人数</th>
+					<th style="padding: 10px; border: 1px solid #444; color: #e0e0e0;">总销售额/总销量=估算单价</th>
 				</tr>
 			</thead>
 		`;
@@ -303,11 +304,11 @@
 			const displaySales = formatUnitNumber(sales);
 			tbodyHtml += `
 				<tr>
-					<td style="padding: 10px; border: 1px solid #ddd; text-align: center;">${days[index]}天</td>
-					<td style="padding: 10px; border: 1px solid #ddd; text-align: center;">${d.format_sales_amount}</td>
-					<td style="padding: 10px; border: 1px solid #ddd; text-align: center;">${displaySales}</td>
-					<td style="padding: 10px; border: 1px solid #ddd; text-align: center;">${authors}</td>
-					<td style="padding: 10px; border: 1px solid #ddd; text-align: center;">${displaySalesAmount} / ${sales} = ¥${displayUnitPrice}</td>
+					<td style="padding: 10px; border: 1px solid #444; text-align: center; color: #cccccc;">${days[index]}天</td>
+					<td style="padding: 10px; border: 1px solid #444; text-align: center; color: #cccccc;">${d.format_sales_amount}</td>
+					<td style="padding: 10px; border: 1px solid #444; text-align: center; color: #cccccc;">${displaySales}</td>
+					<td style="padding: 10px; border: 1px solid #444; text-align: center; color: #cccccc;">${authors}</td>
+					<td style="padding: 10px; border: 1px solid #444; text-align: center; color: #cccccc;">${displaySalesAmount} / ${sales} = ¥${displayUnitPrice}</td>
 				</tr>
 			`;
 		});
@@ -320,6 +321,10 @@
 		closeBtn.innerText = '关闭';
 		closeBtn.style.marginTop = '20px';
 		closeBtn.style.padding = '8px 16px';
+		closeBtn.style.backgroundColor = '#333';
+		closeBtn.style.color = '#fff';
+		closeBtn.style.border = '1px solid #555';
+		closeBtn.style.borderRadius = '4px';
 		closeBtn.style.cursor = 'pointer';
 		closeBtn.onclick = () => {
 			mask.style.display = 'none';
