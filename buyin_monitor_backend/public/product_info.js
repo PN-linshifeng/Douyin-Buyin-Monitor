@@ -441,10 +441,58 @@
 		};
 
 		title.appendChild(link);
+		title.style.display = 'flex';
+		title.style.justifyContent = 'space-between';
+		title.style.alignItems = 'center';
 		title.style.marginBottom = '20px';
 		title.style.color = '#ffffff';
 		title.style.borderBottom = '1px solid #444';
 		title.style.paddingBottom = '10px';
+
+		// 操作按钮区域
+		const actionsDiv = document.createElement('div');
+		actionsDiv.style.display = 'flex';
+		actionsDiv.style.gap = '10px';
+		actionsDiv.style.alignItems = 'center';
+
+		// 刷新按钮
+		const refreshBtn = document.createElement('button');
+		refreshBtn.innerText = '↻ 刷新';
+		refreshBtn.style.padding = '4px 8px';
+		refreshBtn.style.fontSize = '12px';
+		refreshBtn.style.backgroundColor = 'rgba(255, 255, 255, 0.1)';
+		refreshBtn.style.border = '1px solid rgba(255, 255, 255, 0.2)';
+		refreshBtn.style.borderRadius = '4px';
+		refreshBtn.style.color = '#e0e0e0';
+		refreshBtn.style.cursor = 'pointer';
+		refreshBtn.onclick = (e) => {
+			e.stopPropagation(); // 防止触发拖拽
+			refreshBtn.innerText = '刷新中...';
+			refreshBtn.disabled = true;
+			analyzeAndShow(promotionId);
+		};
+		refreshBtn.onmousedown = (e) => e.stopPropagation(); // 防止触发拖拽
+		actionsDiv.appendChild(refreshBtn);
+
+		// 头部关闭按钮
+		const headerCloseBtn = document.createElement('button');
+		headerCloseBtn.innerText = '✕';
+		headerCloseBtn.style.padding = '4px 8px';
+		headerCloseBtn.style.fontSize = '14px';
+		headerCloseBtn.style.backgroundColor = 'transparent';
+		headerCloseBtn.style.border = 'none';
+		headerCloseBtn.style.color = '#ccc';
+		headerCloseBtn.style.cursor = 'pointer';
+		headerCloseBtn.onmouseenter = () => (headerCloseBtn.style.color = '#fff');
+		headerCloseBtn.onmouseleave = () => (headerCloseBtn.style.color = '#ccc');
+		headerCloseBtn.onclick = (e) => {
+			e.stopPropagation();
+			container.remove();
+		};
+		headerCloseBtn.onmousedown = (e) => e.stopPropagation();
+		actionsDiv.appendChild(headerCloseBtn);
+
+		title.appendChild(actionsDiv);
 		container.appendChild(title);
 
 		makeDraggable(container, title);
@@ -469,20 +517,6 @@
 		});
 
 		container.appendChild(tablesContainer);
-
-		const closeBtn = document.createElement('button');
-		closeBtn.innerText = '关闭';
-		closeBtn.style.marginTop = '10px';
-		closeBtn.style.padding = '8px 20px';
-		closeBtn.style.backgroundColor = '#333';
-		closeBtn.style.color = '#fff';
-		closeBtn.style.border = '1px solid #555';
-		closeBtn.style.borderRadius = '4px';
-		closeBtn.style.cursor = 'pointer';
-		closeBtn.onclick = () => {
-			container.remove();
-		};
-		container.appendChild(closeBtn);
 
 		document.body.appendChild(container);
 	}
