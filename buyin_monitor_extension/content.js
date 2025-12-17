@@ -30,7 +30,7 @@
 		function (event) {
 			if (event.source !== window) return;
 
-			// 处理捕获通知
+			// 监听详细页面的 pack_detail 捕获通知
 			if (event.data.type && event.data.type === 'DOUYIN_MONITOR_CAPTURE') {
 				console.log('[Douyin Monitor Content] Received capture data from Page');
 				const payload = event.data.payload;
@@ -45,7 +45,7 @@
 				};
 				// updateButtonState(true);
 			}
-
+			// 监听选品页面的 material_list 响应
 			if (event.data.type === 'DOUYIN_MONITOR_CAPTURE_RESPONSE') {
 				const payload = event.data.payload;
 				// Check for material_list
@@ -64,7 +64,4 @@
 		},
 		false
 	);
-
-	// ===========================
-	// 2. UI 逻辑 (按钮部分) 已移动到 product_info.js
 })();

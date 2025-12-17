@@ -428,16 +428,16 @@
 		link.target = '_blank';
 		link.innerText = productName;
 		link.style.color = '#ffffff';
-		link.style.textDecoration = 'none';
+		link.style.textDecoration = 'underline';
 		link.style.cursor = 'pointer';
 		link.onmousedown = (e) => {
 			e.stopPropagation();
 		};
 		link.onmouseenter = () => {
-			link.style.textDecoration = 'underline';
+			// link.style.textDecoration = 'underline';
 		};
 		link.onmouseleave = () => {
-			link.style.textDecoration = 'none';
+			// link.style.textDecoration = 'none';
 		};
 
 		title.appendChild(link);

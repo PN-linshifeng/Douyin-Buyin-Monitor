@@ -72,12 +72,11 @@
 			return;
 		}
 
-		// Target: child with class "index_module__title___dadac"
-		const timingEl = wrapper.querySelector('.index_module__oneLine___dadac');
+		// Target: child with class "index_module__title___dadac" or "index_module__oneLine___dadac"
+		const timingEl =
+			wrapper.querySelector('.index_module__oneLine___dadac') ||
+			wrapper.querySelector('.index_module__title___dadac');
 		if (!timingEl) {
-			console.error(
-				'Element with class .index_module__oneLine___dadac not found'
-			);
 			alert('无法找到商品名称元素');
 			return;
 		}
