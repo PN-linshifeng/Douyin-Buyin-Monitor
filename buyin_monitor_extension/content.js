@@ -1,6 +1,6 @@
 (function () {
 	console.log(
-		'%c [Douyin Monitor] Content Script Loaded v1.4 (Isolated World)',
+		'%c [Douyin Monitor] Content Script Loaded v1.5 (Isolated World)',
 		'color: #4eca06; font-weight: bold; font-size: 14px;'
 	);
 
@@ -25,8 +25,6 @@
 	// ===========================
 	// 1. 监听来自 Injected Script 的消息
 	// ===========================
-	const pendingRequests = new Map();
-
 	window.addEventListener(
 		'message',
 		function (event) {
@@ -47,79 +45,14 @@
 				};
 				updateButtonState(true);
 			}
-
-			// 处理请求结果
-			if (event.data.type === 'DOUYIN_MONITOR_FETCH_RESULT') {
-				const {requestId, success, data, error} = event.data;
-				if (pendingRequests.has(requestId)) {
-					const {resolve, reject} = pendingRequests.get(requestId);
-					pendingRequests.delete(requestId);
-					if (success) {
-						resolve(data);
-					} else {
-						reject(new Error(error));
-					}
-				}
-			}
+			// Note: FETCH_RESULT is now handled in product_info.js
 		},
 		false
 	);
 
 	// ===========================
-	// 2. UI 逻辑
+	// 2. UI 逻辑 (按钮部分)
 	// ===========================
-
-	/**
-	 * 让元素可拖拽
-	 * @param {HTMLElement} element - 要移动的元素
-	 * @param {HTMLElement} handle - 触发拖拽的区域 (默认为 element 自身)
-	 */
-	function makeDraggable(element, handle) {
-		handle = handle || element;
-		handle.style.cursor = 'move';
-
-		let isDragging = false;
-		let startX, startY, initialLeft, initialTop;
-
-		handle.onmousedown = function (e) {
-			e.preventDefault();
-			isDragging = true;
-			startX = e.clientX;
-			startY = e.clientY;
-
-			// 获取当前位置（即使是计算样式）
-			const rect = element.getBoundingClientRect();
-			initialLeft = rect.left;
-			initialTop = rect.top;
-
-			// 切换为固定定位数值，防止 transform 干扰或初始 auto 问题
-			element.style.position = 'fixed';
-			element.style.left = initialLeft + 'px';
-			element.style.top = initialTop + 'px';
-			element.style.right = 'auto';
-			element.style.bottom = 'auto';
-			element.style.margin = '0';
-			// 如果有 transform 居中，需要移除它，否则位置会偏移叠加
-			element.style.transform = 'none';
-
-			document.addEventListener('mousemove', onMouseMove);
-			document.addEventListener('mouseup', onMouseUp);
-		};
-
-		function onMouseMove(e) {
-			if (!isDragging) return;
-			const dx = e.clientX - startX;
-			const dy = e.clientY - startY;
-			element.style.left = initialLeft + dx + 'px';
-			element.style.top = initialTop + dy + 'px';
-		}
-
-		function onMouseUp() {
-			isDragging = false;
-			document.removeEventListener('mousemove', onMouseMove);
-			document.removeEventListener('mouseup', onMouseUp);
-		}
-	}
 
 	function createButton() {
 		if (document.getElementById('douyin-monitor-btn')) return;
@@ -154,7 +87,11 @@
 			if (!isDrag) handleBtnClick(promotionId);
 		};
 
-		makeDraggable(btn);
+		if (window.ProductInfo && window.ProductInfo.makeDraggable) {
+			window.ProductInfo.makeDraggable(btn);
+		} else {
+			console.warn('ProductInfo module not loaded yet');
+		}
 
 		function append() {
 			if (document.body) {
@@ -164,32 +101,6 @@
 			}
 		}
 		append();
-	}
-	// 通用请求委托函数
-	function sendInjectedRequest(url, body) {
-		return new Promise((resolve, reject) => {
-			const requestId = Date.now() + '_' + Math.random();
-			pendingRequests.set(requestId, {resolve, reject});
-
-			window.postMessage(
-				{
-					type: 'DOUYIN_MONITOR_FETCH',
-					payload: {
-						requestId,
-						url,
-						body,
-					},
-				},
-				'*'
-			);
-
-			setTimeout(() => {
-				if (pendingRequests.has(requestId)) {
-					pendingRequests.delete(requestId);
-					reject(new Error('Request timeout'));
-				}
-			}, 15000);
-		});
 	}
 
 	function updateButtonState(ready) {
@@ -203,7 +114,7 @@
 	}
 
 	async function handleBtnClick(promotionId) {
-		if (!promotionId) {
+		if (!capturedRequest) {
 			alert('尚未捕获到接口请求。请等待页面加载完成或手动刷新。');
 			return;
 		}
@@ -225,19 +136,9 @@
 				const urlObj = new URL(capturedRequest.url);
 				const ewid = urlObj.searchParams.get('ewid');
 
-				// 提取原始 Body 用于获取 biz_id
-				let originalBodyObj = {};
-				if (typeof capturedRequest.init.body === 'string') {
-					originalBodyObj = JSON.parse(capturedRequest.init.body);
-				} else {
-					originalBodyObj = capturedRequest.init.body;
-				}
-
 				if (ewid) {
 					console.log('Detected ewid:', ewid, 'Fetching product detail...');
-					const productRes = await fetchProductData(ewid, promotionId);
-
-					// 响应结构: data.model.product
+					const productRes = await ProductInfo.fetchProductData(promotionId);
 					productData = productRes;
 				} else {
 					console.warn('No ewid found in captured URL');
@@ -248,12 +149,16 @@
 
 			// 2. 请求 7/30 天数据
 			const ranges = [7, 30]; // 7天和30天
+
+			// 获取原始 Body
+			const originalBody = capturedRequest.init.body;
+
 			const promises = ranges.map((days) =>
-				fetchDataFordays(days, promotionId)
+				ProductInfo.fetchDataFordays(days, promotionId, originalBody)
 			);
 			const results = await Promise.all(promises);
 
-			showPopup(results, ranges, productData);
+			ProductInfo.showPopup(results, ranges, productData);
 		} catch (error) {
 			console.error('获取数据失败', error);
 			alert('获取数据失败: ' + error.message);
@@ -261,416 +166,6 @@
 			btn.innerText = originalText;
 			btn.disabled = false;
 		}
-	}
-
-	async function fetchProductData(ewid, biz_id) {
-		// 构造 Body
-		const newBodyObj = {
-			scene_info: {
-				request_page: 2,
-			},
-			biz_id: biz_id,
-			biz_id_type: 2, //
-			enter_from: 'pc.selection_square.recommend_main',
-			data_module: 'pc-non-core',
-			extra: {
-				use_kol_product: '1',
-			},
-		};
-		const bodyStr = JSON.stringify(newBodyObj);
-
-		// 构造 URL: 需要清理签名参数
-		// 使用 capturedRequest.url 的 base 部分，替换 path 和 query
-		// 或者直接构造新的 base URL。Buyin 域名固定。
-		const targetUrlBase = `https://buyin.jinritemai.com/pc/selection/decision/pack_detail?ewid=${ewid}`;
-
-		// 发送 POST 请求 (Injected 默认为 POST)
-		return sendInjectedRequest(targetUrlBase, bodyStr);
-	}
-
-	async function fetchDataFordays(days, biz_id) {
-		const {init} = capturedRequest;
-		let bodyStr = init.body;
-
-		// 1. 构造 Body
-		try {
-			const newBodyObj = {
-				scene_info: {
-					request_page: 2,
-				},
-				other_params: {
-					colonel_activity_id: '',
-				},
-				biz_id: biz_id,
-				biz_id_type: 2,
-				enter_from: 'pc.selection_square.recommend_main',
-				data_module: 'dynamic',
-				dynamic_params: {
-					param_type: 9,
-					promotion_data_params: {
-						time_range: String(days),
-					},
-					content_data_params: {
-						time_range: String(days),
-					},
-				},
-				extra: {},
-			};
-
-			bodyStr = JSON.stringify(newBodyObj);
-		} catch (e) {
-			console.error('Body 构造失败', e);
-			throw e;
-		}
-
-		console.log(`正在请求 ${days} 天数据 (Via Injected Script)...`);
-
-		// 2. 直接使用捕获的原始 URL (假设 SDK 会自动补全签名参数)
-		const fullUrl = '/pc/selection/decision/pack_detail';
-
-		// 4. 委托 Main World 发起 Fetch (通过 XHR 触发 SDK 签名)
-		return sendInjectedRequest(fullUrl, bodyStr);
-	}
-
-	/**
-	 * 格式化数字：万、百万、千万，保留两位小数
-	 */
-	function calculateStats(data, days, productData, promotionId) {
-		const promo = data?.model?.promotion_data?.calculate_data || {};
-		const content = data?.model?.content_data?.calculate_data || {};
-		// Use fetched product data if available
-		const product =
-			productData?.data?.model?.shop_product_data?.product_infos.find(
-				(info) => {
-					return info.promotion_id === promotionId;
-				}
-			)?.base_model || {};
-
-		// A3 / A4: Total Sales
-		const totalSales = promo.sales || 0;
-		const totalAmount = promo.sales_amount || 0;
-
-		// C Columns: Sales Volume
-		const liveSales = content.live_sales || 0;
-		const liveMatchOrderNum = content.live_match_order_num || 0;
-		const videoSales = content.video_sales || 0;
-		const imageTextSales = content.image_text_sales || 0;
-		const bindShopSales = content.bind_shop_sales || 0; // Window/Showcase
-		// C2: Product Card = Total - others
-		const productCardSales =
-			totalSales - liveSales - videoSales - imageTextSales - bindShopSales;
-
-		// Amounts (in cents)
-		const liveAmount = content.live_sales_amount || 0;
-		const videoAmount = content.video_sales_amount || 0;
-		const imageTextAmount = content.image_text_sales_amount || 0;
-		const bindShopAmount = content.bind_shop_sales_amount || 0;
-		const productCardAmount =
-			totalAmount - liveAmount - videoAmount - imageTextAmount - bindShopAmount;
-
-		// Helper for division
-		const safeDiv = (a, b) => (b === 0 ? 0 : a / b);
-
-		// D Columns: Share % (of Total Sales A4)
-		const getShare = (val) => (safeDiv(val, totalSales) * 100).toFixed(2) + '%';
-
-		// E Columns: Daily Avg
-		const getDaily = (val) => safeDiv(val, days).toFixed(2);
-
-		// F Columns: Avg Price (Amount / Volume). Amount is in cents, so /100.
-		const getPriceNum = (amount, vol) => safeDiv(amount / 100, vol);
-		const getPrice = (amount, vol) => getPriceNum(amount, vol).toFixed(2);
-
-		// --- Requirement 2 Stats ---
-		// 1. 直播人均出单数 (Diff)
-		const liveSalesDiff = liveSales / liveMatchOrderNum;
-
-		// 2. 直播出单规格
-		const livePriceVal = getPriceNum(liveAmount, liveSales); // F3 Value
-
-		let productPriceRaw =
-			product?.marketing_info?.price_desc?.price?.origin || 0;
-		if (typeof productPriceRaw === 'string') {
-			productPriceRaw = parseFloat(productPriceRaw.replace(/[^\d.]/g, '')) || 0;
-		}
-		productPriceRaw = productPriceRaw / 100;
-
-		const specDiff = livePriceVal - productPriceRaw;
-		const isHigh = specDiff >= 4;
-		const specLevel = isHigh ? '高' : '低';
-		const specColor = isHigh ? '#25c260' : '#fe2c55';
-
-		return {
-			totalSales,
-			days,
-			extraStats: {
-				liveSalesDiff: {
-					val: liveSalesDiff.toFixed(2),
-					formula: `${liveSales} / ${liveMatchOrderNum}`,
-				},
-				specStat: {
-					val: specDiff,
-					level: specLevel,
-					color: specColor,
-					formula: `${livePriceVal.toFixed(2)} - ${productPriceRaw}`,
-				},
-			},
-			channels: [
-				{
-					name: '商品卡',
-					vol: productCardSales, // C2
-					share: getShare(productCardSales), // D2
-					daily: getDaily(productCardSales), // E2
-					price: getPrice(productCardAmount, productCardSales), // F2
-				},
-				{
-					name: '直播',
-					vol: liveSales, // C3
-					share: getShare(liveSales), // D3
-					daily: getDaily(liveSales), // E3
-					price: getPrice(liveAmount, liveSales), // F3
-				},
-				{
-					name: '短视频',
-					vol: videoSales, // C4
-					share: getShare(videoSales), // D4
-					daily: getDaily(videoSales), // E4
-					price: getPrice(videoAmount, videoSales), // F4
-				},
-				{
-					name: '图文',
-					vol: imageTextSales, // C5
-					share: getShare(imageTextSales), // D5
-					daily: getDaily(imageTextSales), // E5
-					price: getPrice(imageTextAmount, imageTextSales), // F5
-				},
-				{
-					name: '橱窗',
-					vol: bindShopSales, // C6
-					share: getShare(bindShopSales), // D6
-					daily: getDaily(bindShopSales), // E6
-					price: getPrice(bindShopAmount, bindShopSales), // F6
-				},
-			],
-		};
-	}
-
-	function createTableHtml(stats) {
-		const {days, totalSales, channels, extraStats} = stats;
-		// Channels: 0:ProductCard, 1:Live, 2:Video, 3:ImageText, 4:Showcase
-
-		const rowCard = channels[0];
-		const rowLive = channels[1];
-		const rowVideo = channels[2];
-		const rowImage = channels[3];
-		const rowShop = channels[4];
-
-		const {liveSalesDiff, specStat} = extraStats;
-
-		return `
-			<table style="width: 100%; border-collapse: collapse; margin-bottom: 20px; font-size: 14px;">
-				<thead style="background-color: #2d2d2d;">
-					<tr>
-						<th style="padding: 10px; border: 1px solid #444; color: #e0e0e0; width: 15%;">${days}天</th>
-						<th style="padding: 10px; border: 1px solid #444; color: #e0e0e0;">销售渠道</th>
-						<th style="padding: 10px; border: 1px solid #444; color: #e0e0e0;">销售量</th>
-						<th style="padding: 10px; border: 1px solid #444; color: #e0e0e0;">销售占比</th>
-						<th style="padding: 10px; border: 1px solid #444; color: #e0e0e0;">日均销售单数</th>
-						<th style="padding: 10px; border: 1px solid #444; color: #e0e0e0;">平均客单价</th>
-					</tr>
-				</thead>
-				<tbody>
-					<!-- Row 1: Time Range + Product Card -->
-					<tr>
-						<td rowspan="5" style="padding: 10px; border: 1px solid #444; text-align: center; color: #ff8888; font-weight: bold;">总销量: ${totalSales}</td>
-						<td style="padding: 8px; border: 1px solid #444; text-align: center; color: #cccccc;">${
-							rowCard.name
-						}</td>
-						<td style="padding: 8px; border: 1px solid #444; text-align: center; color: #cccccc;">${
-							rowCard.vol
-						}</td>
-						<td style="padding: 8px; border: 1px solid #444; text-align: center; color: #cccccc;">${
-							rowCard.share
-						}</td>
-						<td style="padding: 8px; border: 1px solid #444; text-align: center; color: #cccccc;">${
-							rowCard.daily
-						}</td>
-						<td style="padding: 8px; border: 1px solid #444; text-align: center; color: #cccccc;">${
-							rowCard.price
-						}</td>
-					</tr>
-					<!-- Row 2: Live -->
-					<tr>
-						<td style="padding: 8px; border: 1px solid #444; text-align: center; color: #cccccc;">${
-							rowLive.name
-						}</td>
-						<td style="padding: 8px; border: 1px solid #444; text-align: center; color: #cccccc;">${
-							rowLive.vol
-						}</td>
-						<td style="padding: 8px; border: 1px solid #444; text-align: center; color: #cccccc;">${
-							rowLive.share
-						}</td>
-						<td style="padding: 8px; border: 1px solid #444; text-align: center; color: #cccccc;">${
-							rowLive.daily
-						}</td>
-						<td style="padding: 8px; border: 1px solid #444; text-align: center; color: #cccccc;">${
-							rowLive.price
-						}</td>
-					</tr>
-					<!-- Row 3: Total Sales + Video -->
-					<tr>
-						
-						<td style="padding: 8px; border: 1px solid #444; text-align: center; color: #cccccc;">${
-							rowVideo.name
-						}</td>
-						<td style="padding: 8px; border: 1px solid #444; text-align: center; color: #cccccc;">${
-							rowVideo.vol
-						}</td>
-						<td style="padding: 8px; border: 1px solid #444; text-align: center; color: #cccccc;">${
-							rowVideo.share
-						}</td>
-						<td style="padding: 8px; border: 1px solid #444; text-align: center; color: #cccccc;">${
-							rowVideo.daily
-						}</td>
-						<td style="padding: 8px; border: 1px solid #444; text-align: center; color: #cccccc;">${
-							rowVideo.price
-						}</td>
-					</tr>
-					<!-- Row 4: Image Text -->
-					<tr>
-						<td style="padding: 8px; border: 1px solid #444; text-align: center; color: #cccccc;">${
-							rowImage.name
-						}</td>
-						<td style="padding: 8px; border: 1px solid #444; text-align: center; color: #cccccc;">${
-							rowImage.vol
-						}</td>
-						<td style="padding: 8px; border: 1px solid #444; text-align: center; color: #cccccc;">${
-							rowImage.share
-						}</td>
-						<td style="padding: 8px; border: 1px solid #444; text-align: center; color: #cccccc;">${
-							rowImage.daily
-						}</td>
-						<td style="padding: 8px; border: 1px solid #444; text-align: center; color: #cccccc;">${
-							rowImage.price
-						}</td>
-					</tr>
-					<!-- Row 5: Showcase -->
-					<tr>
-						<td style="padding: 8px; border: 1px solid #444; text-align: center; color: #cccccc;">${
-							rowShop.name
-						}</td>
-						<td style="padding: 8px; border: 1px solid #444; text-align: center; color: #cccccc;">${
-							rowShop.vol
-						}</td>
-						<td style="padding: 8px; border: 1px solid #444; text-align: center; color: #cccccc;">${
-							rowShop.share
-						}</td>
-						<td style="padding: 8px; border: 1px solid #444; text-align: center; color: #cccccc;">${
-							rowShop.daily
-						}</td>
-						<td style="padding: 8px; border: 1px solid #444; text-align: center; color: #cccccc;">${
-							rowShop.price
-						}</td>
-					</tr>
-				</tbody>
-			</table>
-			<div style="margin-bottom: 30px; font-size: 13px; color: #ccc; line-height: 1.6;">
-				<div>
-					<strong>直播人均出单数：</strong> ${
-						liveSalesDiff.formula
-					} = <span style="color: #fff; font-weight: bold;">${
-			liveSalesDiff.val
-		}</span>
-				</div>
-				<div>
-					<strong>直播出单规格：</strong> ${
-						specStat.formula
-					} = <span style="font-weight:bold; color: ${
-			specStat.color
-		};">${specStat.val.toFixed(2)} (${specStat.level})</span>
-				</div>
-			</div>
-		`;
-	}
-
-	function showPopup(results, ranges, productData) {
-		const oldPopup = document.getElementById('douyin-monitor-popup');
-		// 如果已存在，只移除旧的（或者更新数据，这里简化为重绘）
-		if (oldPopup) oldPopup.remove();
-
-		// 此处不再创建 mask，直接创建 container 作为 popup
-		const container = document.createElement('div');
-		container.id = 'douyin-monitor-popup'; // 复用 ID 方便查找
-		container.style.position = 'fixed';
-
-		// 初始居中
-		container.style.top = '50%';
-		container.style.left = '50%';
-		container.style.transform = 'translate(-50%, -50%)';
-
-		container.style.zIndex = '10000';
-		container.style.display = 'block';
-
-		container.style.backgroundColor = '#1e1e1e';
-		container.style.color = '#e0e0e0';
-		container.style.padding = '20px';
-		container.style.borderRadius = '8px';
-		container.style.boxShadow = '0 4px 20px rgba(0,0,0,0.4)';
-		// Made wider for horizontal layout
-		container.style.width = '98%';
-		container.style.maxWidth = '1800px';
-		container.style.maxHeight = '95vh';
-		container.style.overflowY = 'auto';
-
-		const title = document.createElement('h3');
-		title.innerText = '数据分析报告';
-		title.style.marginBottom = '20px';
-		title.style.color = '#ffffff';
-		title.style.borderBottom = '1px solid #444';
-		title.style.paddingBottom = '10px';
-		container.appendChild(title);
-
-		// 让弹窗可通过标题拖拽
-		makeDraggable(container, title);
-
-		// Container for horizontal tables
-		const tablesContainer = document.createElement('div');
-		tablesContainer.style.display = 'flex';
-		tablesContainer.style.gap = '15px';
-		tablesContainer.style.overflowX = 'auto';
-		tablesContainer.style.paddingBottom = '10px'; // Space for scrollbar if needed
-
-		// Iterate results and append tables
-		results.forEach((item, index) => {
-			const data = item?.data || {};
-			const days = ranges[index];
-			const stats = calculateStats(data, days, productData, data.promotion_id);
-			const tableHtml = createTableHtml(stats);
-
-			const wrapper = document.createElement('div');
-			wrapper.style.flex = '1'; // Distribute space evenly
-			wrapper.style.minWidth = '400px'; // Prevent squishing too much
-			wrapper.innerHTML = tableHtml;
-			tablesContainer.appendChild(wrapper);
-		});
-
-		container.appendChild(tablesContainer);
-
-		const closeBtn = document.createElement('button');
-		closeBtn.innerText = '关闭';
-		closeBtn.style.marginTop = '10px';
-		closeBtn.style.padding = '8px 20px';
-		closeBtn.style.backgroundColor = '#333';
-		closeBtn.style.color = '#fff';
-		closeBtn.style.border = '1px solid #555';
-		closeBtn.style.borderRadius = '4px';
-		closeBtn.style.cursor = 'pointer';
-		closeBtn.onclick = () => {
-			container.remove();
-		};
-		container.appendChild(closeBtn);
-
-		document.body.appendChild(container);
 	}
 
 	createButton();
