@@ -8,7 +8,23 @@
 		return url && TARGET_URLS.some((target) => url.indexOf(target) !== -1);
 	}
 
+	// Buffer for late-loading scripts
+	window.__DM_BUFFER = window.__DM_BUFFER || [];
+
 	function notifyContentScript(type, payload) {
+		// Buffer material_list responses
+		if (
+			type === 'DOUYIN_MONITOR_CAPTURE_RESPONSE' &&
+			payload &&
+			payload.url &&
+			payload.url.indexOf('/pc/selection/common/material_list') !== -1
+		) {
+			console.log('[Douyin Monitor Injected] Buffering material_list data');
+			window.__DM_BUFFER.push(payload);
+			// Keep buffer size reasonable
+			if (window.__DM_BUFFER.length > 20) window.__DM_BUFFER.shift();
+		}
+
 		window.postMessage(
 			{
 				type: type, // 'DOUYIN_MONITOR_CAPTURE' or 'DOUYIN_MONITOR_CAPTURE_RESPONSE'

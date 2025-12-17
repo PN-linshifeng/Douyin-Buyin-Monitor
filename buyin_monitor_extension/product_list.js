@@ -155,6 +155,30 @@
 		observer.observe(document.body, {childList: true, subtree: true});
 		// Initial check
 		setTimeout(injectButtons, 2000); // Wait a bit for initial render
+
+		// 1. Process Buffered Data
+		if (window.__DM_BUFFER && window.__DM_BUFFER.length > 0) {
+			console.log(
+				`[ProductList] Processing ${window.__DM_BUFFER.length} buffered items`
+			);
+			window.__DM_BUFFER.forEach((payload) => {
+				processList(payload);
+			});
+			// Optional: Clear buffer or keep it?
+			// Better keep it or mark processed if we don't want re-processing,
+			// but processList handles concatenation.
+		}
+
+		// 2. Listen for future messages direct from Injected Script
+		window.addEventListener('message', (event) => {
+			if (event.source !== window) return;
+			if (event.data.type === 'DOUYIN_MONITOR_CAPTURE_RESPONSE') {
+				const payload = event.data.payload;
+				if (payload.url.indexOf('/pc/selection/common/material_list') !== -1) {
+					processList(payload);
+				}
+			}
+		});
 	}
 
 	// Start
