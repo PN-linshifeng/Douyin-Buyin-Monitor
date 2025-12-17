@@ -4,15 +4,15 @@
 	"version": "1.2",
 	"description": "Listen and log requests on buyin.jinritemai.com",
 	"permissions": ["webRequest"],
-	"host_permissions": ["*://buyin.jinritemai.com/*"],
+	"host_permissions": ["*://buyin.jinritemai.com/*", "http://localhost:3000/*"],
 	"background": {
 		"service_worker": "background.js"
 	},
 	"content_scripts": [
 		{
 			"matches": ["*://buyin.jinritemai.com/*"],
-			"js": ["product_info.js", "product_list.js", "content.js"],
-			"run_at": "document_start"
+			"js": ["content.js"],
+			"run_at": "document_end"
 		}
 	],
 	"web_accessible_resources": [

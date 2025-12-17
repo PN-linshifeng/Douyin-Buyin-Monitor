@@ -1,0 +1,367 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>用户管理 - Douyin Monitor</title>
+  <style>
+    body {
+      font-family: sans-serif;
+      background: #f0f2f5;
+      margin: 0;
+      padding: 20px;
+    }
+
+    .container {
+      max-width: 1000px;
+      margin: 0 auto;
+      background: white;
+      padding: 20px;
+      border-radius: 8px;
+      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+    }
+
+    .header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 20px;
+      border-bottom: 1px solid #eee;
+      padding-bottom: 15px;
+    }
+
+    h1 {
+      margin: 0;
+      font-size: 20px;
+      color: #333;
+    }
+
+    .btn {
+      padding: 6px 12px;
+      border: none;
+      border-radius: 4px;
+      cursor: pointer;
+      font-size: 14px;
+    }
+
+    .btn-primary {
+      background: #1890ff;
+      color: white;
+    }
+
+    .btn-danger {
+      background: #ff4d4f;
+      color: white;
+    }
+
+    .btn-default {
+      background: #fff;
+      border: 1px solid #d9d9d9;
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      margin-top: 10px;
+    }
+
+    th,
+    td {
+      text-align: left;
+      padding: 12px;
+      border-bottom: 1px solid #eee;
+    }
+
+    th {
+      background: #fafafa;
+      color: #666;
+      font-weight: 600;
+    }
+
+    .status-badge {
+      padding: 2px 6px;
+      border-radius: 4px;
+      font-size: 12px;
+    }
+
+    .status-active {
+      background: #e6f7ff;
+      color: #1890ff;
+      border: 1px solid #91d5ff;
+    }
+
+    .status-expired {
+      background: #fff1f0;
+      color: #ff4d4f;
+      border: 1px solid #ffa39e;
+    }
+
+    /* Modal */
+    .modal {
+      display: none;
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background: rgba(0, 0, 0, 0.5);
+      align-items: center;
+      justify-content: center;
+    }
+
+    .modal.open {
+      display: flex;
+    }
+
+    .modal-content {
+      background: white;
+      padding: 20px;
+      border-radius: 8px;
+      width: 400px;
+    }
+
+    .modal-header {
+      font-weight: bold;
+      margin-bottom: 15px;
+      font-size: 16px;
+    }
+
+    .form-item {
+      margin-bottom: 15px;
+    }
+
+    .form-item label {
+      display: block;
+      margin-bottom: 5px;
+      color: #666;
+    }
+
+    .form-item input {
+      width: 100%;
+      padding: 8px;
+      box-sizing: border-box;
+      border: 1px solid #ddd;
+      border-radius: 4px;
+    }
+
+    .modal-footer {
+      text-align: right;
+      margin-top: 20px;
+    }
+
+    .modal-footer button {
+      margin-left: 10px;
+    }
+
+  </style>
+</head>
+
+<body>
+  <div class="container">
+    <div class="header">
+      <h1>用户管理</h1>
+      <div>
+        <span id="currentUser" style="margin-right: 15px; color: #666;">Admin</span>
+        <button onclick="logout()" class="btn btn-default">退出登录</button>
+      </div>
+    </div>
+    <div style="margin-bottom: 15px;">
+      <button onclick="openAddModal()" class="btn btn-primary">+ 新增用户</button>
+    </div>
+    <table id="userTable">
+      <thead>
+        <tr>
+          <th>ID</th>
+          <th>手机号</th>
+          <th>Buyin ID</th>
+          <th>创建时间</th>
+          <th>过期时间</th>
+          <th>状态</th>
+          <th>操作</th>
+        </tr>
+      </thead>
+      <tbody>
+        <!-- Data here -->
+      </tbody>
+    </table>
+  </div>
+  <!-- Edit/Add Modal -->
+  <div id="userModal" class="modal">
+    <div class="modal-content">
+      <div class="modal-header" id="modalTitle">新增用户</div>
+      <div class="form-item">
+        <label>手机号</label>
+        <input type="text" id="modalPhone" placeholder="请输入手机号">
+      </div>
+      <div class="form-item">
+        <label>过期时间 (格式: YYYY-MM-DD)</label>
+        <input type="date" id="modalExpire">
+      </div>
+      <div class="modal-footer">
+        <button onclick="closeModal()" class="btn btn-default">取消</button>
+        <button onclick="saveUser()" class="btn btn-primary">保存</button>
+      </div>
+    </div>
+  </div>
+  <script>
+    let currentMode = 'add'; // 'add' or 'edit'
+    let editingId = null;
+
+    // Init
+    checkAuth();
+
+    function checkAuth() {
+      fetch('/api/admin/check-auth')
+        .then(res => res.json())
+        .then(data => {
+          if (!data.success) {
+            window.location.href = '/admin.html';
+          } else {
+            document.getElementById('currentUser').innerText = data.user.username;
+            loadUsers();
+          }
+        });
+    }
+
+    function formatDate(isoStr) {
+      if (!isoStr) return '-';
+      const d = new Date(isoStr);
+      return d.toLocaleString('zh-CN', { hour12: false });
+    }
+
+    function isExpired(dateStr) {
+      if (!dateStr) return false;
+      return new Date() > new Date(dateStr);
+    }
+
+    async function loadUsers() {
+      const res = await fetch('/api/admin/users');
+      const result = await res.json();
+      if (result.success) {
+        renderTable(result.data);
+      }
+    }
+
+    function renderTable(users) {
+      const tbody = document.querySelector('#userTable tbody');
+      tbody.innerHTML = '';
+
+      users.forEach(u => {
+        const tr = document.createElement('tr');
+        const expired = isExpired(u.expirationTime);
+        const statusHtml = expired
+          ? '<span class="status-badge status-expired">已过期</span>'
+          : '<span class="status-badge status-active">正常</span>';
+
+        tr.innerHTML = `
+                    <td>${u.id}</td>
+                    <td>${u.phone}</td>
+                    <td>${u.buyinId || '-'}</td>
+                    <td>${formatDate(u.createTime)}</td>
+                    <td>${u.expirationTime ? formatDate(u.expirationTime).split(' ')[0] : '永久'}</td>
+                    <td>${statusHtml}</td>
+                    <td>
+                        <button onclick="openEditModal('${u.id}', '${u.expirationTime || ''}')" class="btn btn-default" style="margin-right:5px;">修改期限</button>
+                        <button onclick="deleteUser('${u.id}')" class="btn btn-danger">删除</button>
+                    </td>
+                `;
+        tbody.appendChild(tr);
+      });
+    }
+
+    // --- Actions ---
+
+    function logout() {
+      fetch('/api/admin/logout', { method: 'POST' })
+        .then(() => window.location.href = '/admin.html');
+    }
+
+    function deleteUser(id) {
+      if (!confirm('确定删除该用户吗？')) return;
+      fetch(`/api/admin/users/${id}`, { method: 'DELETE' })
+        .then(res => res.json())
+        .then(data => {
+          if (data.success) loadUsers();
+          else alert(data.message);
+        });
+    }
+
+    // --- Modal ---
+
+    function openAddModal() {
+      currentMode = 'add';
+      document.getElementById('modalTitle').innerText = '新增用户';
+      document.getElementById('modalPhone').value = '';
+      document.getElementById('modalPhone').disabled = false;
+      document.getElementById('modalExpire').value = '';
+      document.getElementById('userModal').classList.add('open');
+    }
+
+    function openEditModal(id, currentExpire) {
+      currentMode = 'edit';
+      editingId = id;
+      document.getElementById('modalTitle').innerText = '修改过期时间';
+      document.getElementById('modalPhone').value = '(用户ID: ' + id + ')';
+      document.getElementById('modalPhone').disabled = true;
+
+      // Format to YYYY-MM-DD for input[type=date]
+      let dateVal = '';
+      if (currentExpire) {
+        const d = new Date(currentExpire);
+        const year = d.getFullYear();
+        const month = String(d.getMonth() + 1).padStart(2, '0');
+        const day = String(d.getDate()).padStart(2, '0');
+        dateVal = `${year}-${month}-${day}`;
+      }
+      document.getElementById('modalExpire').value = dateVal;
+
+      document.getElementById('userModal').classList.add('open');
+    }
+
+    function closeModal() {
+      document.getElementById('userModal').classList.remove('open');
+    }
+
+    async function saveUser() {
+      const phone = document.getElementById('modalPhone').value;
+      let expireDate = document.getElementById('modalExpire').value;
+
+      // Make end of day if date selected
+      let expirationTime = '';
+      if (expireDate) {
+        expirationTime = new Date(expireDate + 'T23:59:59').toISOString();
+      }
+
+      if (currentMode === 'add') {
+        const res = await fetch('/api/admin/users', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ phone, expirationTime })
+        });
+        const data = await res.json();
+        if (data.success) {
+          closeModal();
+          loadUsers();
+        } else {
+          alert(data.message || 'Error');
+        }
+      } else {
+        const res = await fetch(`/api/admin/users/${editingId}`, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ expirationTime })
+        });
+        const data = await res.json();
+        if (data.success) {
+          closeModal();
+          loadUsers();
+        } else {
+          alert(data.message);
+        }
+      }
+    }
+  </script>
+</body>
+
+</html>

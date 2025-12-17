@@ -1,0 +1,117 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>管理员登录 - Douyin Monitor</title>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+            background-color: #f0f2f5;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            margin: 0;
+        }
+        .login-card {
+            background: white;
+            padding: 40px;
+            border-radius: 8px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+            width: 100%;
+            max-width: 320px;
+        }
+        .login-title {
+            text-align: center;
+            margin-bottom: 24px;
+            color: #333;
+            font-size: 24px;
+        }
+        .form-group {
+            margin-bottom: 20px;
+        }
+        .form-control {
+            width: 100%;
+            padding: 10px;
+            border: 1px solid #d9d9d9;
+            border-radius: 4px;
+            box-sizing: border-box;
+            font-size: 16px;
+        }
+        .btn-primary {
+            width: 100%;
+            padding: 10px;
+            background-color: #1890ff;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            font-size: 16px;
+            cursor: pointer;
+            transition: background 0.3s;
+        }
+        .btn-primary:hover {
+            background-color: #40a9ff;
+        }
+        .error-msg {
+            color: #ff4d4f;
+            text-align: center;
+            margin-top: 10px;
+            font-size: 14px;
+        }
+    </style>
+</head>
+<body>
+    <div class="login-card">
+        <h1 class="login-title">后台管理登录</h1>
+        <form id="loginForm">
+            <div class="form-group">
+                <input type="text" id="username" class="form-control" placeholder="用户名" required value="admin">
+            </div>
+            <div class="form-group">
+                <input type="password" id="password" class="form-control" placeholder="密码" required>
+            </div>
+            <button type="submit" class="btn-primary">登录</button>
+            <div id="errorMsg" class="error-msg"></div>
+        </form>
+    </div>
+
+    <script>
+        const form = document.getElementById('loginForm');
+        const errorMsg = document.getElementById('errorMsg');
+
+        // 检查是否已登录
+        fetch('/api/admin/check-auth')
+            .then(res => res.json())
+            .then(data => {
+                if (data.success) {
+                    window.location.href = '/dashboard.html';
+                }
+            });
+
+        form.onsubmit = async (e) => {
+            e.preventDefault();
+            const username = document.getElementById('username').value;
+            const password = document.getElementById('password').value;
+            errorMsg.innerText = '';
+
+            try {
+                const res = await fetch('/api/admin/login', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ username, password })
+                });
+                const data = await res.json();
+                
+                if (data.success) {
+                    window.location.href = '/dashboard.html';
+                } else {
+                    errorMsg.innerText = data.message || '登录失败';
+                }
+            } catch (err) {
+                errorMsg.innerText = '请求失败，请检查网络';
+            }
+        };
+    </script>
+</body>
+</html>

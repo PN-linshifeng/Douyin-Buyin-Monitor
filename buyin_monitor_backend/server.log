@@ -1,0 +1,12 @@
+
+> buyin_monitor_backend@1.0.0 start
+> node server.js
+
+Backend server running on http://localhost:3000
+[Debug] Check-Auth Header: undefined
+[Debug] Check-Auth Header: Bearer U2FsdGVkX195JHNG7RfKnIP+8t5ys50T/fmCw9TpICqIG/hLjKtxHnrZBaOBcLJ5XxpmfpHPs68Q9cMpfPVUSQUejDbXQnNazWdAddMT4F8=
+[Debug] Decrypted Payload: {"userId":1,"phone":"13800138000","ts":1765958041945}
+[Debug] Check-Auth Header: Bearer U2FsdGVkX195JHNG7RfKnIP+8t5ys50T/fmCw9TpICqIG/hLjKtxHnrZBaOBcLJ5XxpmfpHPs68Q9cMpfPVUSQUejDbXQnNazWdAddMT4F8=
+[Debug] Decrypted Payload: {"userId":1,"phone":"13800138000","ts":1765958041945}
+[Debug] Check-Auth Header: Bearer U2FsdGVkX195JHNG7RfKnIP+8t5ys50T/fmCw9TpICqIG/hLjKtxHnrZBaOBcLJ5XxpmfpHPs68Q9cMpfPVUSQUejDbXQnNazWdAddMT4F8=
+[Debug] Decrypted Payload: {"userId":1,"phone":"13800138000","ts":1765958041945}
