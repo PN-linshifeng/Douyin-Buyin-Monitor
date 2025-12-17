@@ -522,6 +522,64 @@
 		}
 	}
 
+	function createFloatingButton() {
+		// 1. URL 检查
+		if (
+			window.location.href.indexOf(
+				'/dashboard/merch-picking-library/merch-promoting'
+			) === -1
+		) {
+			return;
+		}
+
+		if (document.getElementById('douyin-monitor-btn')) return;
+
+		const btn = document.createElement('button');
+		btn.id = 'douyin-monitor-btn';
+		btn.innerText = '获取数据';
+		btn.style.position = 'fixed';
+		// 初始位置
+		btn.style.top = '100px';
+		btn.style.right = '20px';
+
+		btn.style.zIndex = '9999';
+		btn.style.padding = '10px 20px';
+		btn.style.backgroundColor = '#fe2c55';
+		btn.style.color = '#fff';
+		btn.style.border = 'none';
+		btn.style.borderRadius = '4px';
+		btn.style.cursor = 'pointer';
+		btn.style.boxShadow = '0 2px 10px rgba(0,0,0,0.2)';
+
+		// 防止点击拖拽时触发 click
+		let isDrag = false;
+		btn.addEventListener('mousedown', () => (isDrag = false));
+		btn.addEventListener('mousemove', () => (isDrag = true));
+		btn.onclick = (e) => {
+			const localeUrl = new URL(location.href);
+			const promotionId = localeUrl.searchParams.get('commodity_id');
+			if (!isDrag && promotionId) {
+				analyzeAndShow(promotionId);
+			} else if (!promotionId) {
+				console.warn('URL中未找到 commodity_id');
+			}
+		};
+
+		makeDraggable(btn);
+
+		function append() {
+			if (document.body) {
+				document.body.appendChild(btn);
+			} else {
+				requestAnimationFrame(append);
+			}
+		}
+		append();
+	}
+
+	// 自动尝试创建按钮
+	createFloatingButton();
+
 	window.ProductInfo = {
 		makeDraggable,
 		sendInjectedRequest,
@@ -531,5 +589,6 @@
 		createTableHtml,
 		showPopup,
 		analyzeAndShow,
+		createFloatingButton,
 	};
 })();
