@@ -133,59 +133,6 @@
 		if (window.ProductInfo && window.ProductInfo.analyzeAndShow) {
 			window.ProductInfo.analyzeAndShow(promotionId);
 		}
-		return;
-		if (!capturedRequest) {
-			alert('尚未捕获到接口请求。请等待页面加载完成或手动刷新。');
-			return;
-		}
-		const hasPopup = document.getElementById('douyin-monitor-popup');
-		if (hasPopup) {
-			hasPopup.style.display = 'block';
-			return;
-		}
-
-		const btn = document.getElementById('douyin-monitor-btn');
-		const originalText = btn.innerText;
-		btn.innerText = '加载中...';
-		btn.disabled = true;
-
-		try {
-			// 1. 获取 ewid 并请求 pack_detail
-			let productData = {};
-			try {
-				const urlObj = new URL(capturedRequest.url);
-				const ewid = urlObj.searchParams.get('ewid');
-
-				if (ewid) {
-					console.log('Detected ewid:', ewid, 'Fetching product detail...');
-					const productRes = await ProductInfo.fetchProductData(promotionId);
-					productData = productRes;
-				} else {
-					console.warn('No ewid found in captured URL');
-				}
-			} catch (e) {
-				console.error('Failed to fetch product data:', e);
-			}
-
-			// 2. 请求 7/30 天数据
-			const ranges = [7, 30]; // 7天和30天
-
-			// 获取原始 Body
-			const originalBody = capturedRequest.init.body;
-
-			const promises = ranges.map((days) =>
-				ProductInfo.fetchDataFordays(days, promotionId, originalBody)
-			);
-			const results = await Promise.all(promises);
-
-			ProductInfo.showPopup(results, ranges, productData);
-		} catch (error) {
-			console.error('获取数据失败', error);
-			alert('获取数据失败: ' + error.message);
-		} finally {
-			btn.innerText = originalText;
-			btn.disabled = false;
-		}
 	}
 
 	createButton();

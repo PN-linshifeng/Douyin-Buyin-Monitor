@@ -416,12 +416,31 @@
 
 		const title = document.createElement('h3');
 
-		title.innerText =
+		const productName =
 			productData?.data?.model?.shop_product_data?.product_infos.find(
 				(info) => {
 					return info.promotion_id === promotionId;
 				}
 			)?.base_model?.product_info?.name || '';
+
+		const link = document.createElement('a');
+		link.href = `https://buyin.jinritemai.com/dashboard/merch-picking-library/merch-promoting?commodity_id=${promotionId}&commodity_location=1&id=${promotionId}`;
+		link.target = '_blank';
+		link.innerText = productName;
+		link.style.color = '#ffffff';
+		link.style.textDecoration = 'none';
+		link.style.cursor = 'pointer';
+		link.onmousedown = (e) => {
+			e.stopPropagation();
+		};
+		link.onmouseenter = () => {
+			link.style.textDecoration = 'underline';
+		};
+		link.onmouseleave = () => {
+			link.style.textDecoration = 'none';
+		};
+
+		title.appendChild(link);
 		title.style.marginBottom = '20px';
 		title.style.color = '#ffffff';
 		title.style.borderBottom = '1px solid #444';
