@@ -148,7 +148,10 @@
 		btn.addEventListener('mousedown', () => (isDrag = false));
 		btn.addEventListener('mousemove', () => (isDrag = true));
 		btn.onclick = (e) => {
-			if (!isDrag) handleBtnClick();
+			const localeUrl = new URL(location.href);
+
+			const promotionId = localeUrl.searchParams.get('commodity_id');
+			if (!isDrag) handleBtnClick(promotionId);
 		};
 
 		makeDraggable(btn);
@@ -199,8 +202,8 @@
 		}
 	}
 
-	async function handleBtnClick() {
-		if (!capturedRequest) {
+	async function handleBtnClick(promotionId) {
+		if (!promotionId) {
 			alert('尚未捕获到接口请求。请等待页面加载完成或手动刷新。');
 			return;
 		}
@@ -232,7 +235,7 @@
 
 				if (ewid) {
 					console.log('Detected ewid:', ewid, 'Fetching product detail...');
-					const productRes = await fetchProductData(ewid, originalBodyObj);
+					const productRes = await fetchProductData(ewid, promotionId);
 
 					// 响应结构: data.model.product
 					productData = productRes;
@@ -245,7 +248,9 @@
 
 			// 2. 请求 7/30 天数据
 			const ranges = [7, 30]; // 7天和30天
-			const promises = ranges.map((days) => fetchDataFordays(days));
+			const promises = ranges.map((days) =>
+				fetchDataFordays(days, promotionId)
+			);
 			const results = await Promise.all(promises);
 
 			showPopup(results, ranges, productData);
@@ -258,14 +263,14 @@
 		}
 	}
 
-	async function fetchProductData(ewid, originalBodyObj) {
+	async function fetchProductData(ewid, biz_id) {
 		// 构造 Body
 		const newBodyObj = {
 			scene_info: {
 				request_page: 2,
 			},
-			biz_id: originalBodyObj.biz_id,
-			biz_id_type: originalBodyObj.biz_id_type, // Assuming 2 based on requirement, or inherit
+			biz_id: biz_id,
+			biz_id_type: 2, //
 			enter_from: 'pc.selection_square.recommend_main',
 			data_module: 'pc-non-core',
 			extra: {
@@ -283,25 +288,22 @@
 		return sendInjectedRequest(targetUrlBase, bodyStr);
 	}
 
-	async function fetchDataFordays(days) {
+	async function fetchDataFordays(days, biz_id) {
 		const {init} = capturedRequest;
 		let bodyStr = init.body;
 
 		// 1. 构造 Body
 		try {
-			if (typeof bodyStr !== 'string') {
-				bodyStr = JSON.stringify(bodyStr);
-			}
-			const originalBodyObj = JSON.parse(bodyStr);
-
 			const newBodyObj = {
-				scene_info: originalBodyObj.scene_info || {},
+				scene_info: {
+					request_page: 2,
+				},
 				other_params: {
 					colonel_activity_id: '',
 				},
-				biz_id: originalBodyObj.biz_id,
-				biz_id_type: originalBodyObj.biz_id_type,
-				enter_from: originalBodyObj.enter_from,
+				biz_id: biz_id,
+				biz_id_type: 2,
+				enter_from: 'pc.selection_square.recommend_main',
 				data_module: 'dynamic',
 				dynamic_params: {
 					param_type: 9,
@@ -324,20 +326,10 @@
 		console.log(`正在请求 ${days} 天数据 (Via Injected Script)...`);
 
 		// 2. 直接使用捕获的原始 URL (假设 SDK 会自动补全签名参数)
-		const fullUrl = capturedRequest.url;
-
-		// 3. 处理 URL 参数：移除可能存在的旧签名，让 SDK 重新生成
-		const urlObj = new URL(fullUrl);
-		urlObj.searchParams.delete('a_bogus');
-		urlObj.searchParams.delete('msToken');
-		// 移除 verifyFp 和 fp，因为用户说这些也是 SDK 加上去的
-		urlObj.searchParams.delete('verifyFp');
-		urlObj.searchParams.delete('fp');
-
-		const targetUrl = urlObj.toString();
+		const fullUrl = '/pc/selection/decision/pack_detail';
 
 		// 4. 委托 Main World 发起 Fetch (通过 XHR 触发 SDK 签名)
-		return sendInjectedRequest(targetUrl, bodyStr);
+		return sendInjectedRequest(fullUrl, bodyStr);
 	}
 
 	/**
