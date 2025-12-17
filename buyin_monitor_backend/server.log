@@ -15,3 +15,7 @@ Backend server running on http://localhost:3000
 [Debug] Decrypted Payload: {"userId":1,"phone":"13800138000","ts":1765959259296}
 [Debug] Check-Auth Header: Bearer U2FsdGVkX1+1jWvbOfp4ot4CulCwYYZCsAdEaYNTh1oZiqsSfPDxmdyztQ/RWxJWu+yoRdeqRznALPYgu1WAYDnjO7STyT0c2m13Aodr3jk=
 [Debug] Decrypted Payload: {"userId":1,"phone":"13800138000","ts":1765959259296}
+[Debug] Check-Auth Header: Bearer U2FsdGVkX1+1jWvbOfp4ot4CulCwYYZCsAdEaYNTh1oZiqsSfPDxmdyztQ/RWxJWu+yoRdeqRznALPYgu1WAYDnjO7STyT0c2m13Aodr3jk=
+[Debug] Decrypted Payload: {"userId":1,"phone":"13800138000","ts":1765959259296}
+[Debug] Check-Auth Header: Bearer U2FsdGVkX1+1jWvbOfp4ot4CulCwYYZCsAdEaYNTh1oZiqsSfPDxmdyztQ/RWxJWu+yoRdeqRznALPYgu1WAYDnjO7STyT0c2m13Aodr3jk=
+[Debug] Decrypted Payload: {"userId":1,"phone":"13800138000","ts":1765959259296}
