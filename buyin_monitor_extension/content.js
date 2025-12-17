@@ -162,6 +162,32 @@
 		}
 		append();
 	}
+	// 通用请求委托函数
+	function sendInjectedRequest(url, body) {
+		return new Promise((resolve, reject) => {
+			const requestId = Date.now() + '_' + Math.random();
+			pendingRequests.set(requestId, {resolve, reject});
+
+			window.postMessage(
+				{
+					type: 'DOUYIN_MONITOR_FETCH',
+					payload: {
+						requestId,
+						url,
+						body,
+					},
+				},
+				'*'
+			);
+
+			setTimeout(() => {
+				if (pendingRequests.has(requestId)) {
+					pendingRequests.delete(requestId);
+					reject(new Error('Request timeout'));
+				}
+			}, 15000);
+		});
+	}
 
 	function updateButtonState(ready) {
 		const btn = document.getElementById('douyin-monitor-btn');
@@ -190,11 +216,39 @@
 		btn.disabled = true;
 
 		try {
+			// 1. 获取 ewid 并请求 pack_detail
+			let productData = {};
+			try {
+				const urlObj = new URL(capturedRequest.url);
+				const ewid = urlObj.searchParams.get('ewid');
+
+				// 提取原始 Body 用于获取 biz_id
+				let originalBodyObj = {};
+				if (typeof capturedRequest.init.body === 'string') {
+					originalBodyObj = JSON.parse(capturedRequest.init.body);
+				} else {
+					originalBodyObj = capturedRequest.init.body;
+				}
+
+				if (ewid) {
+					console.log('Detected ewid:', ewid, 'Fetching product detail...');
+					const productRes = await fetchProductData(ewid, originalBodyObj);
+
+					// 响应结构: data.model.product
+					productData = productRes;
+				} else {
+					console.warn('No ewid found in captured URL');
+				}
+			} catch (e) {
+				console.error('Failed to fetch product data:', e);
+			}
+
+			// 2. 请求 7/30 天数据
 			const ranges = [7, 30]; // 7天和30天
 			const promises = ranges.map((days) => fetchDataFordays(days));
 			const results = await Promise.all(promises);
 
-			showPopup(results, ranges);
+			showPopup(results, ranges, productData);
 		} catch (error) {
 			console.error('获取数据失败', error);
 			alert('获取数据失败: ' + error.message);
@@ -202,6 +256,31 @@
 			btn.innerText = originalText;
 			btn.disabled = false;
 		}
+	}
+
+	async function fetchProductData(ewid, originalBodyObj) {
+		// 构造 Body
+		const newBodyObj = {
+			scene_info: {
+				request_page: 2,
+			},
+			biz_id: originalBodyObj.biz_id,
+			biz_id_type: originalBodyObj.biz_id_type, // Assuming 2 based on requirement, or inherit
+			enter_from: 'pc.selection_square.recommend_main',
+			data_module: 'pc-non-core',
+			extra: {
+				use_kol_product: '1',
+			},
+		};
+		const bodyStr = JSON.stringify(newBodyObj);
+
+		// 构造 URL: 需要清理签名参数
+		// 使用 capturedRequest.url 的 base 部分，替换 path 和 query
+		// 或者直接构造新的 base URL。Buyin 域名固定。
+		const targetUrlBase = `https://buyin.jinritemai.com/pc/selection/decision/pack_detail?ewid=${ewid}`;
+
+		// 发送 POST 请求 (Injected 默认为 POST)
+		return sendInjectedRequest(targetUrlBase, bodyStr);
 	}
 
 	async function fetchDataFordays(days) {
@@ -258,38 +337,22 @@
 		const targetUrl = urlObj.toString();
 
 		// 4. 委托 Main World 发起 Fetch (通过 XHR 触发 SDK 签名)
-		return new Promise((resolve, reject) => {
-			const requestId = Date.now() + '_' + Math.random();
-			pendingRequests.set(requestId, {resolve, reject});
-
-			window.postMessage(
-				{
-					type: 'DOUYIN_MONITOR_FETCH',
-					payload: {
-						requestId: requestId,
-						url: targetUrl,
-						body: bodyStr,
-					},
-				},
-				'*'
-			);
-
-			// 超时处理
-			setTimeout(() => {
-				if (pendingRequests.has(requestId)) {
-					pendingRequests.delete(requestId);
-					reject(new Error('Request timeout'));
-				}
-			}, 15000);
-		});
+		return sendInjectedRequest(targetUrl, bodyStr);
 	}
 
 	/**
 	 * 格式化数字：万、百万、千万，保留两位小数
 	 */
-	function calculateStats(data, days) {
+	function calculateStats(data, days, productData, promotionId) {
 		const promo = data?.model?.promotion_data?.calculate_data || {};
 		const content = data?.model?.content_data?.calculate_data || {};
+		// Use fetched product data if available
+		const product =
+			productData?.data?.model?.shop_product_data?.product_infos.find(
+				(info) => {
+					return info.promotion_id === promotionId;
+				}
+			)?.base_model || {};
 
 		// A3 / A4: Total Sales
 		const totalSales = promo.sales || 0;
@@ -297,6 +360,7 @@
 
 		// C Columns: Sales Volume
 		const liveSales = content.live_sales || 0;
+		const liveMatchOrderNum = content.live_match_order_num || 0;
 		const videoSales = content.video_sales || 0;
 		const imageTextSales = content.image_text_sales || 0;
 		const bindShopSales = content.bind_shop_sales || 0; // Window/Showcase
@@ -322,13 +386,43 @@
 		const getDaily = (val) => safeDiv(val, days).toFixed(2);
 
 		// F Columns: Avg Price (Amount / Volume). Amount is in cents, so /100.
-		// Note: Requirement had F2 formula dividing by C3 (LiveSales), which is likely a typo.
-		// Using C2 (ProductCardSales) for Product Card Price to be consistent with others.
-		const getPrice = (amount, vol) => safeDiv(amount / 100, vol).toFixed(2);
+		const getPriceNum = (amount, vol) => safeDiv(amount / 100, vol);
+		const getPrice = (amount, vol) => getPriceNum(amount, vol).toFixed(2);
+
+		// --- Requirement 2 Stats ---
+		// 1. 直播人均出单数 (Diff)
+		const liveSalesDiff = liveSales / liveMatchOrderNum;
+
+		// 2. 直播出单规格
+		const livePriceVal = getPriceNum(liveAmount, liveSales); // F3 Value
+
+		let productPriceRaw =
+			product?.marketing_info?.price_desc?.price?.origin || 0;
+		if (typeof productPriceRaw === 'string') {
+			productPriceRaw = parseFloat(productPriceRaw.replace(/[^\d.]/g, '')) || 0;
+		}
+		productPriceRaw = productPriceRaw / 100;
+
+		const specDiff = livePriceVal - productPriceRaw;
+		const isHigh = specDiff >= 4;
+		const specLevel = isHigh ? '高' : '低';
+		const specColor = isHigh ? '#25c260' : '#fe2c55';
 
 		return {
 			totalSales,
 			days,
+			extraStats: {
+				liveSalesDiff: {
+					val: liveSalesDiff.toFixed(2),
+					formula: `${liveSales} / ${liveMatchOrderNum}`,
+				},
+				specStat: {
+					val: specDiff,
+					level: specLevel,
+					color: specColor,
+					formula: `${livePriceVal.toFixed(2)} - ${productPriceRaw}`,
+				},
+			},
 			channels: [
 				{
 					name: '商品卡',
@@ -370,7 +464,7 @@
 	}
 
 	function createTableHtml(stats) {
-		const {days, totalSales, channels} = stats;
+		const {days, totalSales, channels, extraStats} = stats;
 		// Channels: 0:ProductCard, 1:Live, 2:Video, 3:ImageText, 4:Showcase
 
 		const rowCard = channels[0];
@@ -379,8 +473,10 @@
 		const rowImage = channels[3];
 		const rowShop = channels[4];
 
+		const {liveSalesDiff, specStat} = extraStats;
+
 		return `
-			<table style="width: 100%; border-collapse: collapse; margin-bottom: 30px; font-size: 14px;">
+			<table style="width: 100%; border-collapse: collapse; margin-bottom: 20px; font-size: 14px;">
 				<thead style="background-color: #2d2d2d;">
 					<tr>
 						<th style="padding: 10px; border: 1px solid #444; color: #e0e0e0; width: 15%;">${days}天</th>
@@ -395,51 +491,117 @@
 					<!-- Row 1: Time Range + Product Card -->
 					<tr>
 						<td rowspan="5" style="padding: 10px; border: 1px solid #444; text-align: center; color: #ff8888; font-weight: bold;">总销量: ${totalSales}</td>
-						<td style="padding: 8px; border: 1px solid #444; text-align: center; color: #cccccc;">${rowCard.name}</td>
-						<td style="padding: 8px; border: 1px solid #444; text-align: center; color: #cccccc;">${rowCard.vol}</td>
-						<td style="padding: 8px; border: 1px solid #444; text-align: center; color: #cccccc;">${rowCard.share}</td>
-						<td style="padding: 8px; border: 1px solid #444; text-align: center; color: #cccccc;">${rowCard.daily}</td>
-						<td style="padding: 8px; border: 1px solid #444; text-align: center; color: #cccccc;">${rowCard.price}</td>
+						<td style="padding: 8px; border: 1px solid #444; text-align: center; color: #cccccc;">${
+							rowCard.name
+						}</td>
+						<td style="padding: 8px; border: 1px solid #444; text-align: center; color: #cccccc;">${
+							rowCard.vol
+						}</td>
+						<td style="padding: 8px; border: 1px solid #444; text-align: center; color: #cccccc;">${
+							rowCard.share
+						}</td>
+						<td style="padding: 8px; border: 1px solid #444; text-align: center; color: #cccccc;">${
+							rowCard.daily
+						}</td>
+						<td style="padding: 8px; border: 1px solid #444; text-align: center; color: #cccccc;">${
+							rowCard.price
+						}</td>
 					</tr>
 					<!-- Row 2: Live -->
 					<tr>
-						<td style="padding: 8px; border: 1px solid #444; text-align: center; color: #cccccc;">${rowLive.name}</td>
-						<td style="padding: 8px; border: 1px solid #444; text-align: center; color: #cccccc;">${rowLive.vol}</td>
-						<td style="padding: 8px; border: 1px solid #444; text-align: center; color: #cccccc;">${rowLive.share}</td>
-						<td style="padding: 8px; border: 1px solid #444; text-align: center; color: #cccccc;">${rowLive.daily}</td>
-						<td style="padding: 8px; border: 1px solid #444; text-align: center; color: #cccccc;">${rowLive.price}</td>
+						<td style="padding: 8px; border: 1px solid #444; text-align: center; color: #cccccc;">${
+							rowLive.name
+						}</td>
+						<td style="padding: 8px; border: 1px solid #444; text-align: center; color: #cccccc;">${
+							rowLive.vol
+						}</td>
+						<td style="padding: 8px; border: 1px solid #444; text-align: center; color: #cccccc;">${
+							rowLive.share
+						}</td>
+						<td style="padding: 8px; border: 1px solid #444; text-align: center; color: #cccccc;">${
+							rowLive.daily
+						}</td>
+						<td style="padding: 8px; border: 1px solid #444; text-align: center; color: #cccccc;">${
+							rowLive.price
+						}</td>
 					</tr>
 					<!-- Row 3: Total Sales + Video -->
 					<tr>
 						
-						<td style="padding: 8px; border: 1px solid #444; text-align: center; color: #cccccc;">${rowVideo.name}</td>
-						<td style="padding: 8px; border: 1px solid #444; text-align: center; color: #cccccc;">${rowVideo.vol}</td>
-						<td style="padding: 8px; border: 1px solid #444; text-align: center; color: #cccccc;">${rowVideo.share}</td>
-						<td style="padding: 8px; border: 1px solid #444; text-align: center; color: #cccccc;">${rowVideo.daily}</td>
-						<td style="padding: 8px; border: 1px solid #444; text-align: center; color: #cccccc;">${rowVideo.price}</td>
+						<td style="padding: 8px; border: 1px solid #444; text-align: center; color: #cccccc;">${
+							rowVideo.name
+						}</td>
+						<td style="padding: 8px; border: 1px solid #444; text-align: center; color: #cccccc;">${
+							rowVideo.vol
+						}</td>
+						<td style="padding: 8px; border: 1px solid #444; text-align: center; color: #cccccc;">${
+							rowVideo.share
+						}</td>
+						<td style="padding: 8px; border: 1px solid #444; text-align: center; color: #cccccc;">${
+							rowVideo.daily
+						}</td>
+						<td style="padding: 8px; border: 1px solid #444; text-align: center; color: #cccccc;">${
+							rowVideo.price
+						}</td>
 					</tr>
 					<!-- Row 4: Image Text -->
 					<tr>
-						<td style="padding: 8px; border: 1px solid #444; text-align: center; color: #cccccc;">${rowImage.name}</td>
-						<td style="padding: 8px; border: 1px solid #444; text-align: center; color: #cccccc;">${rowImage.vol}</td>
-						<td style="padding: 8px; border: 1px solid #444; text-align: center; color: #cccccc;">${rowImage.share}</td>
-						<td style="padding: 8px; border: 1px solid #444; text-align: center; color: #cccccc;">${rowImage.daily}</td>
-						<td style="padding: 8px; border: 1px solid #444; text-align: center; color: #cccccc;">${rowImage.price}</td>
+						<td style="padding: 8px; border: 1px solid #444; text-align: center; color: #cccccc;">${
+							rowImage.name
+						}</td>
+						<td style="padding: 8px; border: 1px solid #444; text-align: center; color: #cccccc;">${
+							rowImage.vol
+						}</td>
+						<td style="padding: 8px; border: 1px solid #444; text-align: center; color: #cccccc;">${
+							rowImage.share
+						}</td>
+						<td style="padding: 8px; border: 1px solid #444; text-align: center; color: #cccccc;">${
+							rowImage.daily
+						}</td>
+						<td style="padding: 8px; border: 1px solid #444; text-align: center; color: #cccccc;">${
+							rowImage.price
+						}</td>
 					</tr>
 					<!-- Row 5: Showcase -->
 					<tr>
-						<td style="padding: 8px; border: 1px solid #444; text-align: center; color: #cccccc;">${rowShop.name}</td>
-						<td style="padding: 8px; border: 1px solid #444; text-align: center; color: #cccccc;">${rowShop.vol}</td>
-						<td style="padding: 8px; border: 1px solid #444; text-align: center; color: #cccccc;">${rowShop.share}</td>
-						<td style="padding: 8px; border: 1px solid #444; text-align: center; color: #cccccc;">${rowShop.daily}</td>
-						<td style="padding: 8px; border: 1px solid #444; text-align: center; color: #cccccc;">${rowShop.price}</td>
+						<td style="padding: 8px; border: 1px solid #444; text-align: center; color: #cccccc;">${
+							rowShop.name
+						}</td>
+						<td style="padding: 8px; border: 1px solid #444; text-align: center; color: #cccccc;">${
+							rowShop.vol
+						}</td>
+						<td style="padding: 8px; border: 1px solid #444; text-align: center; color: #cccccc;">${
+							rowShop.share
+						}</td>
+						<td style="padding: 8px; border: 1px solid #444; text-align: center; color: #cccccc;">${
+							rowShop.daily
+						}</td>
+						<td style="padding: 8px; border: 1px solid #444; text-align: center; color: #cccccc;">${
+							rowShop.price
+						}</td>
 					</tr>
 				</tbody>
 			</table>
+			<div style="margin-bottom: 30px; font-size: 13px; color: #ccc; line-height: 1.6;">
+				<div>
+					<strong>直播人均出单数：</strong> ${
+						liveSalesDiff.formula
+					} = <span style="color: #fff; font-weight: bold;">${
+			liveSalesDiff.val
+		}</span>
+				</div>
+				<div>
+					<strong>直播出单规格：</strong> ${
+						specStat.formula
+					} = <span style="font-weight:bold; color: ${
+			specStat.color
+		};">${specStat.val.toFixed(2)} (${specStat.level})</span>
+				</div>
+			</div>
 		`;
 	}
 
-	function showPopup(results, ranges) {
+	function showPopup(results, ranges, productData) {
 		const oldPopup = document.getElementById('douyin-monitor-popup');
 		// 如果已存在，只移除旧的（或者更新数据，这里简化为重绘）
 		if (oldPopup) oldPopup.remove();
@@ -490,7 +652,7 @@
 		results.forEach((item, index) => {
 			const data = item?.data || {};
 			const days = ranges[index];
-			const stats = calculateStats(data, days);
+			const stats = calculateStats(data, days, productData, data.promotion_id);
 			const tableHtml = createTableHtml(stats);
 
 			const wrapper = document.createElement('div');
