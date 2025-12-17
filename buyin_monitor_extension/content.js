@@ -43,7 +43,22 @@
 						body: payload.body,
 					},
 				};
-				updateButtonState(true);
+				// updateButtonState(true);
+			}
+
+			if (event.data.type === 'DOUYIN_MONITOR_CAPTURE_RESPONSE') {
+				const payload = event.data.payload;
+				// Check for material_list
+				if (payload.url.indexOf('/pc/selection/common/material_list') !== -1) {
+					console.log(
+						'[Douyin Monitor Content] Received material_list response'
+					);
+					if (window.ProductList && window.ProductList.processList) {
+						window.ProductList.processList(payload);
+					} else {
+						console.warn('ProductList module not loaded');
+					}
+				}
 			}
 			// Note: FETCH_RESULT is now handled in product_info.js
 		},
@@ -81,6 +96,7 @@
 		btn.addEventListener('mousedown', () => (isDrag = false));
 		btn.addEventListener('mousemove', () => (isDrag = true));
 		btn.onclick = (e) => {
+			debugger;
 			const localeUrl = new URL(location.href);
 
 			const promotionId = localeUrl.searchParams.get('commodity_id');
@@ -114,6 +130,10 @@
 	}
 
 	async function handleBtnClick(promotionId) {
+		if (window.ProductInfo && window.ProductInfo.analyzeAndShow) {
+			window.ProductInfo.analyzeAndShow(promotionId);
+		}
+		return;
 		if (!capturedRequest) {
 			alert('尚未捕获到接口请求。请等待页面加载完成或手动刷新。');
 			return;

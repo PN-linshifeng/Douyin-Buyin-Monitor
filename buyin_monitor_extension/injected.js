@@ -1,22 +1,24 @@
 (function () {
-	const TARGET_URL_PART = '/pc/selection/decision/pack_detail';
+	const TARGET_URLS = [
+		'/pc/selection/decision/pack_detail',
+		'/pc/selection/common/material_list',
+	];
 
-	function notifyContentScript(url, body, method, headers) {
+	function isTargetUrl(url) {
+		return url && TARGET_URLS.some((target) => url.indexOf(target) !== -1);
+	}
+
+	function notifyContentScript(type, payload) {
 		window.postMessage(
 			{
-				type: 'DOUYIN_MONITOR_CAPTURE',
-				payload: {
-					url: url,
-					body: body,
-					method: method,
-					headers: headers,
-				},
+				type: type, // 'DOUYIN_MONITOR_CAPTURE' or 'DOUYIN_MONITOR_CAPTURE_RESPONSE'
+				payload: payload,
 			},
 			'*'
 		);
 	}
 
-	// 监听来自 Content Script 的指令
+	// 监听来自 Content Script 的指令 (主动请求)
 	window.addEventListener('message', function (event) {
 		if (event.data && event.data.type === 'DOUYIN_MONITOR_FETCH') {
 			const {requestId, url, body} = event.data.payload;
@@ -26,7 +28,6 @@
 			);
 
 			try {
-				// 使用当前的 window.XMLHttpRequest，以便被页面 SDK 拦截并签名
 				const xhr = new window.XMLHttpRequest();
 				xhr.open('POST', url, true);
 				xhr.setRequestHeader('Content-Type', 'application/json');
@@ -96,24 +97,42 @@
 		}
 	});
 
-	function checkAndCapture(url, body, method, headers) {
-		if (url && url.indexOf(TARGET_URL_PART) !== -1) {
+	// ===========================
+	// 拦截逻辑 Helper
+	// ===========================
+
+	function captureRequest(url, body, method, headers) {
+		if (isTargetUrl(url)) {
 			try {
 				let bodyStr = body;
 				if (typeof body === 'object') {
 					bodyStr = JSON.stringify(body);
 				}
 
-				const bodyObj = JSON.parse(bodyStr);
-
-				// 只要 data_module 为 pc-non-core 的请求
-				if (bodyObj && bodyObj.data_module === 'pc-non-core') {
-					console.log('[Douyin Monitor Injected] 捕获目标请求 (pc-non-core)');
-					notifyContentScript(url, bodyStr, method, headers);
-				}
+				// 简单过滤：pack_detail 只关心 pc-non-core, material_list 可能都关心
+				// 这里暂时保留旧逻辑，只对 pack_detail 检查 data_module?
+				// 为了兼容性，我们宽松一点，只要是 Target Request 都捕获
+				console.log('[Douyin Monitor Injected] 捕获目标请求:', url);
+				notifyContentScript('DOUYIN_MONITOR_CAPTURE', {
+					url: url,
+					body: bodyStr,
+					method: method,
+					headers: headers,
+				});
 			} catch (e) {
-				// 忽略解析错误
+				console.error('Capture Request Error', e);
 			}
+		}
+	}
+
+	function captureResponse(url, responseBodyStr, requestBodyStr) {
+		if (isTargetUrl(url)) {
+			console.log('[Douyin Monitor Injected] 捕获目标响应:', url);
+			notifyContentScript('DOUYIN_MONITOR_CAPTURE_RESPONSE', {
+				url: url,
+				body: responseBodyStr,
+				requestBody: requestBodyStr,
+			});
 		}
 	}
 
@@ -121,7 +140,6 @@
 	// 2. 拦截 XMLHttpRequest
 	// ===========================
 	const originalXHR = window.XMLHttpRequest;
-	// 避免重复注入
 	if (window.originalXHR) return;
 	window.originalXHR = originalXHR;
 
@@ -145,7 +163,9 @@
 
 		xhr.send = function (body) {
 			if (this._monitorData) {
-				checkAndCapture(
+				// Store body for response capturing
+				this._monitorData.body = body;
+				captureRequest(
 					this._monitorData.url,
 					body,
 					this._monitorData.method,
@@ -155,10 +175,20 @@
 			return originalSend.apply(this, arguments);
 		};
 
+		// 监听响应
+		xhr.addEventListener('load', function () {
+			if (this._monitorData && this.responseText) {
+				captureResponse(
+					this._monitorData.url,
+					this.responseText,
+					this._monitorData.body // Pass request body
+				);
+			}
+		});
+
 		return xhr;
 	}
 
-	// 复制静态属性
 	for (let key in originalXHR) {
 		try {
 			XHRProxy[key] = originalXHR[key];
@@ -182,7 +212,7 @@
 		}
 
 		if (typeof url === 'string') {
-			checkAndCapture(
+			captureRequest(
 				url,
 				config ? config.body : null,
 				config ? config.method : 'GET',
@@ -190,8 +220,26 @@
 			);
 		}
 
-		return originalFetch.apply(this, args);
+		const response = await originalFetch.apply(this, args);
+
+		if (typeof url === 'string' && isTargetUrl(url)) {
+			// 克隆响应以读取 body，不影响原流程
+			const clone = response.clone();
+			clone
+				.text()
+				.then((text) => {
+					captureResponse(url, text);
+				})
+				.catch((err) => {
+					console.error(
+						'[Douyin Monitor Injected] Fetch Response Clone Error:',
+						err
+					);
+				});
+		}
+
+		return response;
 	};
 
-	console.log('[Douyin Monitor] Injected Script Loaded');
+	console.log('[Douyin Monitor] Injected Script Loaded (Updated for List)');
 })();

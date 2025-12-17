@@ -121,8 +121,8 @@
 		return sendInjectedRequest(targetUrlBase, bodyStr);
 	}
 
-	async function fetchDataFordays(days, biz_id, originalBodyStr) {
-		let bodyStr = originalBodyStr;
+	async function fetchDataFordays(days, biz_id) {
+		let bodyStr = '{}';
 
 		try {
 			const newBodyObj = {
@@ -392,7 +392,7 @@
 		`;
 	}
 
-	function showPopup(results, ranges, productData) {
+	function showPopup(results, ranges, productData, promotionId) {
 		const oldPopup = document.getElementById('douyin-monitor-popup');
 		if (oldPopup) oldPopup.remove();
 
@@ -415,7 +415,13 @@
 		container.style.overflowY = 'auto';
 
 		const title = document.createElement('h3');
-		title.innerText = '数据分析报告';
+
+		title.innerText =
+			productData?.data?.model?.shop_product_data?.product_infos.find(
+				(info) => {
+					return info.promotion_id === promotionId;
+				}
+			)?.base_model?.product_info?.name || '';
 		title.style.marginBottom = '20px';
 		title.style.color = '#ffffff';
 		title.style.borderBottom = '1px solid #444';
@@ -462,6 +468,41 @@
 		document.body.appendChild(container);
 	}
 
+	async function analyzeAndShow(promotionId) {
+		if (!promotionId) {
+			alert('Promotion ID 不能为空');
+			return;
+		}
+
+		try {
+			// 1. 获取 ewid 并请求 pack_detail (Product Info)
+			let productData = {};
+
+			try {
+				// For direct analysis, we might not have a clean ewid source if not page load.
+				// But fetchProductData handles fetching the detail structure.
+				console.log('Fetching product data for:', promotionId);
+				const productRes = await fetchProductData(promotionId);
+				productData = productRes;
+			} catch (e) {
+				console.error('Failed to fetch product data:', e);
+			}
+
+			// 2. 请求 7/30 天数据
+			const ranges = [7, 30];
+			// We can pass empty string for originalBodyStr as it is not used for logic anymore
+			const promises = ranges.map((days) =>
+				fetchDataFordays(days, promotionId, '{}')
+			);
+			const results = await Promise.all(promises);
+
+			showPopup(results, ranges, productData, promotionId);
+		} catch (error) {
+			console.error('获取数据失败', error);
+			alert('analyzeAndShow 获取数据失败: ' + error.message);
+		}
+	}
+
 	window.ProductInfo = {
 		makeDraggable,
 		sendInjectedRequest,
@@ -470,5 +511,6 @@
 		calculateStats,
 		createTableHtml,
 		showPopup,
+		analyzeAndShow,
 	};
 })();
