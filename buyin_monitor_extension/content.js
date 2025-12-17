@@ -157,6 +157,10 @@
 				} else {
 					msg.style.color = 'red';
 					msg.innerText = result.message || '登录失败';
+					// 如果是过期，弹窗提示
+					if (res.status === 403 || result.message.includes('过期')) {
+						alert('账号过期');
+					}
 					btn.disabled = false;
 				}
 			} catch (e) {
@@ -197,6 +201,8 @@
 				headers: headers,
 				// credentials: 'include', // 如果用 Token，这行不再关键，但留着无妨
 			});
+
+			console.log('[Douyin Monitor] Check Auth Status:', response.status);
 
 			// !注意!：Content Script 对 localhost 发起 fetch，如果不设置 credentials: 'include'，是不会带 cookie 的。
 			// 但如果后端 cors origin 是 *，设置 credentials include 会报错。

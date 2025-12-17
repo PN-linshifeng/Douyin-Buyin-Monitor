@@ -144,14 +144,30 @@ app.get('/api/extension/check-auth', (req, res) => {
 
 			if (payloadStr) {
 				const payload = JSON.parse(payloadStr);
-				// 可以在这里检查过期时间，比如 30 天
-				// const days30 = 30 * 24 * 60 * 60 * 1000;
-				// if (Date.now() - payload.ts > days30) throw new Error('Expired');
+
+				// 查库验证最新状态 (防止 Token 未过期但后台把用户封了或改了过期时间)
+				const users = readJson(USER_FILE);
+				const dbUser = users.find(
+					(u) => u.phone === payload.phone || u.id === payload.userId
+				);
+
+				if (!dbUser) {
+					return res.status(401).json({success: false, message: '用户不存在'});
+				}
+
+				// 检查过期时间
+				if (dbUser.expirationTime) {
+					const now = new Date();
+					const exp = new Date(dbUser.expirationTime);
+					if (now > exp) {
+						return res.status(403).json({success: false, message: '账号过期'});
+					}
+				}
 
 				const baseUrl = `${req.protocol}://${req.get('host')}`;
 				return res.json({
 					success: true,
-					user: payload,
+					user: dbUser, // 返回最新用户数据
 					scripts: [`${baseUrl}/product_info.js`, `${baseUrl}/product_list.js`],
 				});
 			}
