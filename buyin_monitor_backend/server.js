@@ -7,7 +7,7 @@ const path = require('path');
 const crypto = require('crypto-js');
 
 const app = express();
-const PORT = 6655;
+const PORT = 3308;
 const SECRET_KEY = 'your_secret_key_here'; // 在实际生产中应放在环境变量
 
 // 中间件

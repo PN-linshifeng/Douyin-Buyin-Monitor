@@ -4,7 +4,7 @@
 		'color: #4eca06; font-weight: bold; font-size: 14px;'
 	);
 
-	const BACKEND_URL = 'http://54.151.167.242:3308';
+	const BACKEND_URL = 'http://127.0.0.1:3308';
 
 	// 辅助函数: 通过 Background 代理请求，绕过 Mixed Content / CSP 限制
 	function sendProxyRequest(url, method = 'GET', headers = {}, body = null) {
@@ -170,12 +170,8 @@
 					// 动态加载脚本 (强制转为加载本地扩展资源以符合 CSP)
 					if (result.scripts && Array.isArray(result.scripts)) {
 						result.scripts.forEach((url) => {
-							// 从 URL 提取文件名 (e.g. http://.../product_info.js -> product_info.js)
-							const filename = url.split('/').pop();
-							// 使用本地资源路径
-							const localUrl = chrome.runtime.getURL(filename);
-							console.log('[Douyin Monitor] Loading local script:', localUrl);
-							injectScript(localUrl, true);
+							console.log('[Douyin Monitor] Loading remote script:', url);
+							injectScript(url, true);
 						});
 					}
 
@@ -238,9 +234,8 @@
 			if (data.success && data.scripts) {
 				console.log('[Douyin Monitor] 自动登录成功');
 				data.scripts.forEach((url) => {
-					const filename = url.split('/').pop();
-					const localUrl = chrome.runtime.getURL(filename);
-					injectScript(localUrl, true);
+					console.log('[Douyin Monitor] Loading remote script:', url);
+					injectScript(url, true);
 				});
 			} else {
 				console.log('[Douyin Monitor] 未登录，显示登录框');
@@ -259,24 +254,4 @@
 	} else {
 		checkLoginState();
 	}
-
-	// ===========================
-	// 2. 消息代理 (Content Script <-> Injected)
-	// ===========================
-	// 由于现在 ProductList 可能在 Main World 运行，它如果有直接监听 window message，
-	// 就不需要我们这里做太多事情，除非它依赖 content script 特有的 chrome.runtime API。
-	// 目前来看，background 通信主要由 content script 处理。
-	// 但是 content script 仍然监听 `DOUYIN_MONITOR_CAPTURE_RESPONSE`。
-	// 如果 product_list.js 移到了 Main World，content script 的 window.ProductList 将是 undefined。
-	// 所以我们需要调整一下：
-	// 让 Main World 的 ProductList 直接监听事件？
-	// 或者 Content Script 收到消息后，转发回 Main World（这看起来多余，因为消息本身就是在 Main World 触发的）
-	//
-	// !重要!: `injected.js` 发出的 postMessage 目标是 '*', 所以 Main World 里的其他脚本也能收到。
-	// 所以只要 `product_list.js` 正确添加了 window.addEventListener('message', ...)，它就能工作。
-	// 我们唯一需要担心的是 `product_info.js` 里的 `sendInjectedRequest` 也是通过 postMessage。
-	//
-	// 所以，这里 content.js 的主要职责就是 "加载器"。
-	// 之前的 message listener 这里可以保留用于调试，或者移除。
-	// 为了兼容性，我暂时注释掉对 window.ProductList 的调用，避免报错。
 })();

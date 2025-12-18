@@ -53,11 +53,13 @@
 
 	function findPromotionByName(name) {
 		if (!name) return null;
-		// Trim and clean name just in case
-		const cleanName = name.trim();
+		// Remove ALL spaces for matching
+		const cleanName = name.replace(/\s+/g, '');
 		return savedPromotions.find((p) => {
 			const pName = p?.base_model?.product_info?.name;
-			return pName && pName.trim() === cleanName;
+			if (!pName) return false;
+			const cleanPName = pName.replace(/\s+/g, '');
+			return cleanPName === cleanName;
 		});
 	}
 

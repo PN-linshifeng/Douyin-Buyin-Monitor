@@ -6,7 +6,8 @@
 	"permissions": ["webRequest"],
 	"host_permissions": [
 		"*://buyin.jinritemai.com/*",
-		"http://54.151.167.242:3308/*"
+		"http://54.151.167.242:3308/*",
+		"http://127.0.0.1:3308/*"
 	],
 	"background": {
 		"service_worker": "background.js"
