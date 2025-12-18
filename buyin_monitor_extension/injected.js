@@ -193,7 +193,11 @@
 
 		// 监听响应
 		xhr.addEventListener('load', function () {
-			if (this._monitorData && this.responseText) {
+			// Check responseType before accessing responseText to avoid InvalidStateError
+			if (
+				this._monitorData &&
+				(!this.responseType || this.responseType === 'text')
+			) {
 				captureResponse(
 					this._monitorData.url,
 					this.responseText,

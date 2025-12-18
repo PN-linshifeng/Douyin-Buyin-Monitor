@@ -38,12 +38,55 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
 			url: lastCapturedData.url,
 		});
 	}
+	// 代理请求 (用于绕过页面 CSP/Mixed Content 限制)
+	if (request.type === 'PROXY_REQUEST') {
+		handleProxyRequest(request, sendResponse);
+		return true; // 异步响应
+	}
 	// 保留 EXECUTE_REQUEST 以防万一，或者可以删除。根据用户需求，现在主要是 Content 请求。
 	if (request.type === 'EXECUTE_REQUEST') {
 		handleExecuteRequest(request, sendResponse);
 		return true; // 保持消息通道开启以进行异步响应
 	}
 });
+
+async function handleProxyRequest(request, sendResponse) {
+	try {
+		const {url, method, headers, body} = request;
+		const fetchOptions = {
+			method: method || 'GET',
+			headers: headers || {},
+			credentials: 'include', // 保持 Cookie
+		};
+		if (body) {
+			fetchOptions.body =
+				typeof body === 'object' ? JSON.stringify(body) : body;
+		}
+
+		const response = await fetch(url, fetchOptions);
+
+		// 尝试解析 JSON，如果失败则返回文本
+		let data;
+		const contentType = response.headers.get('content-type');
+		if (contentType && contentType.includes('application/json')) {
+			data = await response.json();
+		} else {
+			data = await response.text(); // 或者根据需求处理
+		}
+
+		sendResponse({
+			success: response.ok,
+			status: response.status,
+			data: data,
+		});
+	} catch (error) {
+		console.error('Proxy request failed:', error);
+		sendResponse({
+			success: false,
+			error: error.message,
+		});
+	}
+}
 
 async function handleExecuteRequest(request, sendResponse) {
 	if (!lastCapturedData.url) {

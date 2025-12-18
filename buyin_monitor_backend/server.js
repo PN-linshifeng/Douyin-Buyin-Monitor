@@ -143,26 +143,33 @@ app.get('/api/extension/check-auth', (req, res) => {
 			console.log('[Debug] Decrypted Payload:', payloadStr);
 
 			if (payloadStr) {
-				// const payload = JSON.parse(payloadStr);
+				const payload = JSON.parse(payloadStr);
 
-				// // 查库验证最新状态 (防止 Token 未过期但后台把用户封了或改了过期时间)
-				// const users = readJson(USER_FILE);
-				// const dbUser = users.find(
-				// 	(u) => u.phone === payload.phone || u.id === payload.userId
-				// );
+				// 查库验证最新状态 (防止 Token 未过期但后台把用户封了或改了过期时间)
+				const users = readJson(USER_FILE);
+				const dbUser = users.find((u) => {
+					// 1. 尝试匹配 ID (转为字符串比较以防类型差异)
+					if (String(u.id) === String(payload.userId)) return true;
+					// 2. 尝试匹配手机号 (需解密)
+					try {
+						const dbPhone = decrypt(u.phone);
+						if (dbPhone === payload.phone) return true;
+					} catch (e) {}
+					return false;
+				});
 
-				// if (!dbUser) {
-				// 	return res.status(401).json({success: false, message: '用户不存在'});
-				// }
+				if (!dbUser) {
+					return res.status(401).json({success: false, message: '用户不存在'});
+				}
 
-				// // 检查过期时间
-				// if (dbUser.expirationTime) {
-				// 	const now = new Date();
-				// 	const exp = new Date(dbUser.expirationTime);
-				// 	if (now > exp) {
-				// 		return res.status(403).json({success: false, message: '账号过期'});
-				// 	}
-				// }
+				// 检查过期时间
+				if (dbUser.expirationTime) {
+					const now = new Date();
+					const exp = new Date(dbUser.expirationTime);
+					if (now > exp) {
+						return res.status(403).json({success: false, message: '账号过期'});
+					}
+				}
 
 				const baseUrl = `${req.protocol}://${req.get('host')}`;
 				return res.json({

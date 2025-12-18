@@ -4,7 +4,29 @@
 		'color: #4eca06; font-weight: bold; font-size: 14px;'
 	);
 
-	const BACKEND_URL = 'http://localhost:3000';
+	const BACKEND_URL = 'http://54.151.167.242:3308';
+
+	// 辅助函数: 通过 Background 代理请求，绕过 Mixed Content / CSP 限制
+	function sendProxyRequest(url, method = 'GET', headers = {}, body = null) {
+		return new Promise((resolve, reject) => {
+			chrome.runtime.sendMessage(
+				{
+					type: 'PROXY_REQUEST',
+					url,
+					method,
+					headers,
+					body,
+				},
+				(response) => {
+					if (chrome.runtime.lastError) {
+						reject(chrome.runtime.lastError);
+					} else {
+						resolve(response);
+					}
+				}
+			);
+		});
+	}
 
 	// ===========================
 	// 0. 注入拦截脚本 (Main World)
@@ -122,19 +144,20 @@
 				const buyinId = await getBuyinAccountInfo();
 				msg.innerText = '正在验证...';
 
-				const res = await fetch(`${BACKEND_URL}/api/extension/login`, {
-					method: 'POST',
-					credentials: 'include', // 重要：保存 session cookie
-					headers: {
+				const proxyRes = await sendProxyRequest(
+					`${BACKEND_URL}/api/extension/login`,
+					'POST',
+					{
 						'Content-Type': 'application/json',
 					},
-					body: JSON.stringify({
-						phone,
-						buyinId,
-					}),
-				});
+					{phone, buyinId}
+				);
 
-				const result = await res.json();
+				if (!proxyRes.success && !proxyRes.data) {
+					throw new Error(proxyRes.error || 'Network Error');
+				}
+				const result = proxyRes.data;
+				const res = {status: proxyRes.status}; // 模拟 response 对象以兼容后续逻辑
 				if (result.success) {
 					msg.style.color = 'green';
 					msg.innerText = '登录成功，正在加载脚本...';
@@ -144,10 +167,15 @@
 						localStorage.setItem('dm_token', result.token);
 					}
 
-					// 动态加载脚本
+					// 动态加载脚本 (强制转为加载本地扩展资源以符合 CSP)
 					if (result.scripts && Array.isArray(result.scripts)) {
 						result.scripts.forEach((url) => {
-							injectScript(url, true);
+							// 从 URL 提取文件名 (e.g. http://.../product_info.js -> product_info.js)
+							const filename = url.split('/').pop();
+							// 使用本地资源路径
+							const localUrl = chrome.runtime.getURL(filename);
+							console.log('[Douyin Monitor] Loading local script:', localUrl);
+							injectScript(localUrl, true);
 						});
 					}
 
@@ -197,28 +225,23 @@
 			// 或者需要前端 fetch 手动指定 credentials: 'include'。
 
 			// 我们先尝试 fetch
-			const response = await fetch(`${BACKEND_URL}/api/extension/check-auth`, {
-				headers: headers,
-				// credentials: 'include', // 如果用 Token，这行不再关键，但留着无妨
-			});
+			const proxyRes = await sendProxyRequest(
+				`${BACKEND_URL}/api/extension/check-auth`,
+				'GET',
+				headers
+			);
 
-			console.log('[Douyin Monitor] Check Auth Status:', response.status);
+			console.log('[Douyin Monitor] Check Auth Status:', proxyRes.status);
 
-			// !注意!：Content Script 对 localhost 发起 fetch，如果不设置 credentials: 'include'，是不会带 cookie 的。
-			// 但如果后端 cors origin 是 *，设置 credentials include 会报错。
-			// 鉴于目前是开发环境，且 content script 权限较大，我们先假设用户会在弹窗登录一次（那次是 fetch，会 set-cookie）。
-			// 等等，fetch set-cookie 对 content script 来说是存到了 localhost 域下。
-			// 之后的 fetch 如果带 credentials: 'include' 就能带上。
-			//
-			// 修正 server.js 的 cors 问题：为了支持 credentials，origin 不能是 *。
-			// 但 extension 的 origin 是什么？是 `chrome-extension://...` 还是页面域 `https://buyin...`?
-			// Content script 的 fetch origin 是当前页面域 `https://buyin.jinritemai.com`。
-			// 所以 server.js 应该反射 origin。
-
-			const data = await response.json();
+			// 背景脚本发起的请求会自动处理 Cookie (如果后端设置了 Origin 处理)
+			const data = proxyRes.data || {};
 			if (data.success && data.scripts) {
 				console.log('[Douyin Monitor] 自动登录成功');
-				data.scripts.forEach((url) => injectScript(url, true));
+				data.scripts.forEach((url) => {
+					const filename = url.split('/').pop();
+					const localUrl = chrome.runtime.getURL(filename);
+					injectScript(localUrl, true);
+				});
 			} else {
 				console.log('[Douyin Monitor] 未登录，显示登录框');
 				// 如果本地有 token 但验证失败，说明过期了，清除它

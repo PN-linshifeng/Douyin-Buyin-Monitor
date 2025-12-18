@@ -102,17 +102,20 @@
 		});
 	}
 
-	async function fetchProductData(biz_id) {
+	async function fetchProductData(
+		biz_id,
+		decision_enter_from = 'pc.selection_square.recommend_main'
+	) {
 		const newBodyObj = {
 			scene_info: {
 				request_page: 2,
 			},
 			biz_id: biz_id,
 			biz_id_type: 2,
-			enter_from: 'pc.selection_square.recommend_main',
-			data_module: 'pc-non-core',
+			enter_from: decision_enter_from,
+			data_module: 'core',
 			extra: {
-				use_kol_product: '1',
+				// use_kol_product: '1',
 			},
 		};
 		const bodyStr = JSON.stringify(newBodyObj);
@@ -121,7 +124,11 @@
 		return sendInjectedRequest(targetUrlBase, bodyStr);
 	}
 
-	async function fetchDataFordays(days, biz_id) {
+	async function fetchDataFordays(
+		days,
+		biz_id,
+		decision_enter_from = 'pc.selection_square.recommend_main'
+	) {
 		let bodyStr = '{}';
 
 		try {
@@ -134,7 +141,7 @@
 				},
 				biz_id: biz_id,
 				biz_id_type: 2,
-				enter_from: 'pc.selection_square.recommend_main',
+				enter_from: decision_enter_from,
 				data_module: 'dynamic',
 				dynamic_params: {
 					param_type: 9,
@@ -162,12 +169,12 @@
 	function calculateStats(data, days, productData, promotionId) {
 		const promo = data?.model?.promotion_data?.calculate_data || {};
 		const content = data?.model?.content_data?.calculate_data || {};
-		const product =
-			productData?.data?.model?.shop_product_data?.product_infos.find(
-				(info) => {
-					return info.promotion_id === promotionId;
-				}
-			)?.base_model || {};
+		// const product =
+		// 	productData?.data?.model?.shop_product_data?.product_infos.find(
+		// 		(info) => {
+		// 			return info.promotion_id === promotionId;
+		// 		}
+		// 	)?.base_model || {};
 
 		const totalSales = promo.sales || 0;
 		const totalAmount = promo.sales_amount || 0;
@@ -197,7 +204,7 @@
 		const livePriceVal = getPriceNum(liveAmount, liveSales);
 
 		let productPriceRaw =
-			product?.marketing_info?.price_desc?.price?.origin || 0;
+			productData?.data?.model?.product?.product_price?.price_label?.price || 0;
 		if (typeof productPriceRaw === 'string') {
 			productPriceRaw = parseFloat(productPriceRaw.replace(/[^\d.]/g, '')) || 0;
 		}
@@ -392,7 +399,13 @@
 		`;
 	}
 
-	function showPopup(results, ranges, productData, promotionId) {
+	function showPopup(
+		results,
+		ranges,
+		productData,
+		promotionId,
+		decision_enter_from
+	) {
 		const oldPopup = document.getElementById('douyin-monitor-popup');
 		if (oldPopup) oldPopup.remove();
 
@@ -417,11 +430,7 @@
 		const title = document.createElement('h3');
 
 		const productName =
-			productData?.data?.model?.shop_product_data?.product_infos.find(
-				(info) => {
-					return info.promotion_id === promotionId;
-				}
-			)?.base_model?.product_info?.name || '';
+			productData?.data?.model?.product?.product_base?.title || '❎错误信息';
 
 		const link = document.createElement('a');
 		link.href = `https://buyin.jinritemai.com/dashboard/merch-picking-library/merch-promoting?commodity_id=${promotionId}&commodity_location=1&id=${promotionId}`;
@@ -469,7 +478,7 @@
 			e.stopPropagation(); // 防止触发拖拽
 			refreshBtn.innerText = '刷新中...';
 			refreshBtn.disabled = true;
-			analyzeAndShow(promotionId);
+			analyzeAndShow(promotionId, decision_enter_from);
 		};
 		refreshBtn.onmousedown = (e) => e.stopPropagation(); // 防止触发拖拽
 		actionsDiv.appendChild(refreshBtn);
@@ -521,7 +530,7 @@
 		document.body.appendChild(container);
 	}
 
-	async function analyzeAndShow(promotionId) {
+	async function analyzeAndShow(promotionId, decision_enter_from) {
 		if (!promotionId) {
 			alert('Promotion ID 不能为空');
 			return;
@@ -532,10 +541,10 @@
 			let productData = {};
 
 			try {
-				// For direct analysis, we might not have a clean ewid source if not page load.
-				// But fetchProductData handles fetching the detail structure.
-				console.log('Fetching product data for:', promotionId);
-				const productRes = await fetchProductData(promotionId);
+				const productRes = await fetchProductData(
+					promotionId,
+					decision_enter_from
+				);
 				productData = productRes;
 			} catch (e) {
 				console.error('Failed to fetch product data:', e);
@@ -545,11 +554,11 @@
 			const ranges = [7, 30];
 			// We can pass empty string for originalBodyStr as it is not used for logic anymore
 			const promises = ranges.map((days) =>
-				fetchDataFordays(days, promotionId, '{}')
+				fetchDataFordays(days, promotionId, decision_enter_from)
 			);
 			const results = await Promise.all(promises);
 
-			showPopup(results, ranges, productData, promotionId);
+			showPopup(results, ranges, productData, promotionId, decision_enter_from);
 		} catch (error) {
 			console.error('获取数据失败', error);
 			alert('analyzeAndShow 获取数据失败: ' + error.message);
@@ -591,9 +600,15 @@
 		btn.addEventListener('mousemove', () => (isDrag = true));
 		btn.onclick = (e) => {
 			const localeUrl = new URL(location.href);
-			const promotionId = localeUrl.searchParams.get('commodity_id');
+			const promotionId =
+				localeUrl.searchParams.get('commodity_id') ||
+				localeUrl.searchParams.get('id');
+
+			const decision_enter_from = localeUrl.searchParams.get(
+				'decision_enter_from'
+			);
 			if (!isDrag && promotionId) {
-				analyzeAndShow(promotionId);
+				analyzeAndShow(promotionId, decision_enter_from);
 			} else if (!promotionId) {
 				console.warn('URL中未找到 commodity_id');
 			}
