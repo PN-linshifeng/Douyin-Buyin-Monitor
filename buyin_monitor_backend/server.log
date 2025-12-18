@@ -27,3 +27,11 @@ Backend server running on http://localhost:3000
 [Debug] Decrypted Payload: {"userId":1,"phone":"13800138000","ts":1765959259296}
 [Debug] Check-Auth Header: Bearer U2FsdGVkX1/guKmkl6D/g90hrXBBSQM7gGkI5Qqs9KnQMtbU/XwYhb0d650wUYFGwVYBHfj4xybXPWbk0WhlXVxefReiXwrGIebSRxyEApc=
 [Debug] Decrypted Payload: {"userId":1765956778794,"phone":"32312311","ts":1765971394413}
+[Debug] Check-Auth Header: Bearer U2FsdGVkX1/guKmkl6D/g90hrXBBSQM7gGkI5Qqs9KnQMtbU/XwYhb0d650wUYFGwVYBHfj4xybXPWbk0WhlXVxefReiXwrGIebSRxyEApc=
+[Debug] Decrypted Payload: {"userId":1765956778794,"phone":"32312311","ts":1765971394413}
+[Debug] Check-Auth Header: Bearer U2FsdGVkX1/guKmkl6D/g90hrXBBSQM7gGkI5Qqs9KnQMtbU/XwYhb0d650wUYFGwVYBHfj4xybXPWbk0WhlXVxefReiXwrGIebSRxyEApc=
+[Debug] Decrypted Payload: {"userId":1765956778794,"phone":"32312311","ts":1765971394413}
+[Debug] Check-Auth Header: Bearer U2FsdGVkX1/guKmkl6D/g90hrXBBSQM7gGkI5Qqs9KnQMtbU/XwYhb0d650wUYFGwVYBHfj4xybXPWbk0WhlXVxefReiXwrGIebSRxyEApc=
+[Debug] Decrypted Payload: {"userId":1765956778794,"phone":"32312311","ts":1765971394413}
+[Debug] Check-Auth Header: Bearer U2FsdGVkX1/guKmkl6D/g90hrXBBSQM7gGkI5Qqs9KnQMtbU/XwYhb0d650wUYFGwVYBHfj4xybXPWbk0WhlXVxefReiXwrGIebSRxyEApc=
+[Debug] Decrypted Payload: {"userId":1765956778794,"phone":"32312311","ts":1765971394413}

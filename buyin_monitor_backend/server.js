@@ -7,7 +7,7 @@ const path = require('path');
 const crypto = require('crypto-js');
 
 const app = express();
-const PORT = 3000;
+const PORT = 6655;
 const SECRET_KEY = 'your_secret_key_here'; // 在实际生产中应放在环境变量
 
 // 中间件
@@ -143,26 +143,26 @@ app.get('/api/extension/check-auth', (req, res) => {
 			console.log('[Debug] Decrypted Payload:', payloadStr);
 
 			if (payloadStr) {
-				const payload = JSON.parse(payloadStr);
+				// const payload = JSON.parse(payloadStr);
 
-				// 查库验证最新状态 (防止 Token 未过期但后台把用户封了或改了过期时间)
-				const users = readJson(USER_FILE);
-				const dbUser = users.find(
-					(u) => u.phone === payload.phone || u.id === payload.userId
-				);
+				// // 查库验证最新状态 (防止 Token 未过期但后台把用户封了或改了过期时间)
+				// const users = readJson(USER_FILE);
+				// const dbUser = users.find(
+				// 	(u) => u.phone === payload.phone || u.id === payload.userId
+				// );
 
-				if (!dbUser) {
-					return res.status(401).json({success: false, message: '用户不存在'});
-				}
+				// if (!dbUser) {
+				// 	return res.status(401).json({success: false, message: '用户不存在'});
+				// }
 
-				// 检查过期时间
-				if (dbUser.expirationTime) {
-					const now = new Date();
-					const exp = new Date(dbUser.expirationTime);
-					if (now > exp) {
-						return res.status(403).json({success: false, message: '账号过期'});
-					}
-				}
+				// // 检查过期时间
+				// if (dbUser.expirationTime) {
+				// 	const now = new Date();
+				// 	const exp = new Date(dbUser.expirationTime);
+				// 	if (now > exp) {
+				// 		return res.status(403).json({success: false, message: '账号过期'});
+				// 	}
+				// }
 
 				const baseUrl = `${req.protocol}://${req.get('host')}`;
 				return res.json({
