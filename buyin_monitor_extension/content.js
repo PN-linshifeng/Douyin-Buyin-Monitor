@@ -32,19 +32,45 @@
 	// 0. 注入拦截脚本 (Main World)
 	// ===========================
 	function injectScript(file_path, isExternal = false) {
+		if (isExternal) {
+			// 通过 Background 注入远程脚本 (绕过页面 CSP script-src)
+			console.log(
+				'[Douyin Monitor] Requesting background to inject:',
+				file_path
+			);
+			chrome.runtime.sendMessage(
+				{
+					type: 'INJECT_REMOTE_SCRIPT',
+					url: file_path,
+				},
+				(response) => {
+					if (!response || !response.success) {
+						console.error(
+							'[Douyin Monitor] Failed to inject remote script:',
+							file_path,
+							response?.error || chrome.runtime.lastError
+						);
+						// 回退或报错提示
+						if (
+							response?.error &&
+							(response.error.includes('Content Security Policy') ||
+								response.error.includes('eval'))
+						) {
+							alert('无法执行远程脚本：页面 CSP 策略过严 (禁止 eval)');
+						}
+					} else {
+						console.log('[Douyin Monitor] Remote script injected successfully');
+					}
+				}
+			);
+			return;
+		}
+
+		// 本地资源注入 (injected.js)
 		var node = document.head || document.documentElement;
 		var script = document.createElement('script');
 		script.setAttribute('type', 'text/javascript');
-		if (isExternal) {
-			script.src = file_path;
-			// 处理加载错误
-			script.onerror = () => {
-				console.error('[Douyin Monitor] Failed to load script:', file_path);
-				alert('加载插件核心脚本失败，请确保后端服务已启动');
-			};
-		} else {
-			script.setAttribute('src', file_path);
-		}
+		script.setAttribute('src', file_path);
 		node.appendChild(script);
 	}
 

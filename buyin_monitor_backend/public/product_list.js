@@ -67,7 +67,7 @@
 		// Parent Wrapper: .index_module__wrapper___dadac
 		// Context: The button is appended TO the wrapper.
 		const wrapper = btn.closest('.index_module__wrapper___dadac');
-		debugger;
+
 		if (!wrapper) {
 			console.error('Wrapper not found for button');
 			alert('无法找到商品容器');

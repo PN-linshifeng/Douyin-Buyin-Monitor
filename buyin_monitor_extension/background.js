@@ -48,6 +48,10 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
 		handleExecuteRequest(request, sendResponse);
 		return true; // 保持消息通道开启以进行异步响应
 	}
+	if (request.type === 'INJECT_REMOTE_SCRIPT') {
+		handleInjectRemoteScript(request, sender, sendResponse);
+		return true;
+	}
 });
 
 async function handleProxyRequest(request, sendResponse) {
@@ -131,5 +135,51 @@ async function handleExecuteRequest(request, sendResponse) {
 	} catch (error) {
 		console.error('Proxy fetch failed:', error);
 		sendResponse({success: false, error: error.message});
+	}
+}
+
+async function handleInjectRemoteScript(request, sender, sendResponse) {
+	try {
+		const {url} = request;
+		// 1. Fetch 脚本内容 (Background 有 host_permissions，不受跨域限制)
+		const response = await fetch(url);
+		if (!response.ok) {
+			throw new Error(`Script fetch failed: ${response.status}`);
+		}
+		const code = await response.text();
+
+		// 2. 注入执行 (Main World)
+		// 注意: 这仍然受页面 CSP (unsafe-eval) 限制，但绕过了 script-src 限制
+		if (sender.tab && sender.tab.id) {
+			await chrome.scripting.executeScript({
+				target: {tabId: sender.tab.id},
+				world: 'MAIN',
+				func: (codeContent) => {
+					console.log('[Douyin Monitor] Executing remote script in Main World');
+					try {
+						// 使用 window.eval 确保在全局作用域执行
+						window.eval(codeContent);
+					} catch (e) {
+						console.error(
+							'[Douyin Monitor] Remote script execution failed:',
+							e
+						);
+						// 尝试即使 eval 失败也打个 log
+						if (e.message.includes('Content Security Policy')) {
+							console.error(
+								'[Douyin Monitor] 页面 CSP 阻止了 eval 执行，请检查页面策略。'
+							);
+						}
+					}
+				},
+				args: [code],
+			});
+			sendResponse({success: true});
+		} else {
+			throw new Error('No sender tab attached');
+		}
+	} catch (e) {
+		console.error('Inject remote script error:', e);
+		sendResponse({success: false, error: e.message});
 	}
 }

@@ -3,7 +3,7 @@
 	"name": "Douyin Buyin Monitor",
 	"version": "1.2",
 	"description": "Listen and log requests on buyin.jinritemai.com",
-	"permissions": ["webRequest"],
+	"permissions": ["webRequest", "scripting"],
 	"host_permissions": [
 		"*://buyin.jinritemai.com/*",
 		"http://54.151.167.242:3308/*",
@@ -21,7 +21,7 @@
 	],
 	"web_accessible_resources": [
 		{
-			"resources": ["injected.js", "product_info.js", "product_list.js"],
+			"resources": ["injected.js"],
 			"matches": ["*://buyin.jinritemai.com/*"]
 		}
 	]

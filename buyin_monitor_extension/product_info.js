@@ -1,1 +1,0 @@
-../buyin_monitor_backend/public/product_info.js
