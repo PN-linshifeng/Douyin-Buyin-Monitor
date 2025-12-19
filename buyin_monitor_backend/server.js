@@ -128,7 +128,10 @@ app.post('/api/extension/login', (req, res) => {
 		success: true,
 		message: 'Login successful',
 		token: token,
-		scripts: [`${baseUrl}/product_info.js`, `${baseUrl}/product_list.js`],
+		scripts: [
+			`${baseUrl}/extension/product_info.js`,
+			`${baseUrl}/extension/product_list.js`,
+		],
 	});
 });
 
@@ -175,7 +178,10 @@ app.get('/api/extension/check-auth', (req, res) => {
 				return res.json({
 					success: true,
 					user: dbUser, // 返回最新用户数据
-					scripts: [`${baseUrl}/product_info.js`, `${baseUrl}/product_list.js`],
+					scripts: [
+						`${baseUrl}/extension/product_info.js`,
+						`${baseUrl}/extension/product_list.js`,
+					],
 				});
 			}
 		} catch (e) {
@@ -189,7 +195,10 @@ app.get('/api/extension/check-auth', (req, res) => {
 		return res.json({
 			success: true,
 			user: req.session.user,
-			scripts: [`${baseUrl}/product_info.js`, `${baseUrl}/product_list.js`],
+			scripts: [
+				`${baseUrl}/extension/product_info.js`,
+				`${baseUrl}/extension/product_list.js`,
+			],
 		});
 	}
 
