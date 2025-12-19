@@ -114,15 +114,16 @@
 				btn.style.cssText = `
                     display: block;
                     margin: 5px auto;
-                    padding: 4px 10px;
-                    background-color: #fe2c55;
+                    padding:10px 10px !important;
+                    background-color: #b9873d;
                     color: white;
                     border: none;
                     border-radius: 4px;
                     cursor: pointer;
-                    font-size: 12px;
+                    font-size: 16px;
                     z-index: 100;
                     position: relative; 
+										width:100%;
                 `;
 
 				btn.onclick = (e) => {
@@ -174,9 +175,47 @@
 					);
 					batchResultsMap.set(promotionId, result);
 					successCount++;
-					console.log(
-						`[批量分析] 成功: ${promo?.base_model?.product_info?.name}`
+
+					// Calculate stats to get Good/Bad status (using 7 days data)
+					const stats7 = window.ProductInfo.calculateStats(
+						result.results[0].data,
+						7,
+						result.productData,
+						promotionId
 					);
+					const statusLabel =
+						stats7.overallStatus === 'good'
+							? '[Good]'
+							: stats7.overallStatus === 'bad'
+							? '[Bad]'
+							: '[Normal]';
+
+					console.log(
+						`[批量分析] 成功 ${statusLabel}: ${promo?.base_model?.product_info?.name}`
+					);
+
+					// Visual Feedback: Update Button Color
+					const promoName = promo?.base_model?.product_info?.name;
+					if (promoName) {
+						const allBtns = document.querySelectorAll(
+							'.douyin-monitor-list-btn'
+						);
+						const targetBtn = Array.from(allBtns).find(
+							(b) => b.getAttribute('name') === promoName
+						);
+						if (targetBtn) {
+							// "If good -> Green, bad -> Red, otherwise
+							if (stats7.overallStatus === 'good') {
+								targetBtn.style.backgroundColor = '#25c260';
+								targetBtn.innerText = '推荐';
+							} else if (stats7.overallStatus === 'bad') {
+								targetBtn.style.backgroundColor = '#ff4d4f';
+								targetBtn.innerText = '不推荐';
+							} else {
+								targetBtn.innerText = '一般';
+							}
+						}
+					}
 				} else {
 					console.error('ProductInfo 模块未加载');
 					failCount++;
