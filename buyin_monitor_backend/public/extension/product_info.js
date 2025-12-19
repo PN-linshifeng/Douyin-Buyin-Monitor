@@ -1,6 +1,6 @@
 (function () {
 	console.log(
-		'%c [Douyin Monitor] ProductInfo Module Loaded',
+		'%c [抖音选品] 商品信息模块已加载',
 		'color: #4eca06; font-weight: bold; font-size: 14px;'
 	);
 
@@ -96,7 +96,7 @@
 			setTimeout(() => {
 				if (pendingRequests.has(requestId)) {
 					pendingRequests.delete(requestId);
-					reject(new Error('Request timeout'));
+					reject(new Error('请求超时'));
 				}
 			}, 15000);
 		});
@@ -115,7 +115,7 @@
 			enter_from: decision_enter_from,
 			data_module: 'core',
 			extra: {
-				// use_kol_product: '1',
+				// use_kol_product: '1', // 启用达人商品逻辑 (可选)
 			},
 		};
 		const bodyStr = JSON.stringify(newBodyObj);
@@ -144,7 +144,7 @@
 		// 2. 商品卡日均销售单数 (E2) 配置
 		cardDaily: {
 			rules: [
-				{max: 100, msg: '商品卡日销量较低', color: '#ff4d4f'}, // Red
+				{max: 100, msg: '商品卡日销量较低', color: '#ff4d4f'}, // 红色
 				{max: 300, msg: '商品卡日销量为一般'},
 				{max: 500, msg: '商品卡日销量不错'},
 				{max: Infinity, msg: '商品卡日销量很好'},
@@ -161,21 +161,47 @@
 		liveSpec: {
 			rules: [
 				// 负数区间 (亏损/低规格)
-                // "小于-5" (<= -5) -> includeMax: true
-				{ max: -5, includeMax: true, msg: '出单大部分严重亏损，佣金高于{y}元，才能盈利，请谨慎选品。', color: '#ff4d4f' }, // Red
-                // "小于-2大于-5" (> -5 && <= -2) -> includeMin: false (default), includeMax: true
-				{ min: -5, max: -2, includeMax: true, msg: '出单大部分为低规格，且亏损，佣金高于{y}元，才能盈利，请谨慎选品' },
-                // "小于0大于-2" (> -2 && < 0) -> default exclusive
-				{ min: -2, max: 0, msg: '出单大部分为低规格，佣金高于{y}元，才能盈利。' },
-				
+				// "小于-5" (<= -5) -> 包含最大值: true
+				{
+					max: -5,
+					includeMax: true,
+					msg: '出单大部分严重亏损，佣金高于{y}元，才能盈利，请谨慎选品。',
+					color: '#ff4d4f',
+				}, // 红色
+				// "大于-5且小于等于-2" -> 不包含最小值 (默认), 包含最大值: true
+				{
+					min: -5,
+					max: -2,
+					includeMax: true,
+					msg: '出单大部分为低规格，且亏损，佣金高于{y}元，才能盈利，请谨慎选品',
+				},
+				// "大于-2且小于0" -> 默认开区间 (不包含端点)
+				{min: -2, max: 0, msg: '出单大部分为低规格，佣金高于{y}元，才能盈利。'},
+
 				// 正数区间 (利润品)
-                // "大于4小于10" (> 4 && < 10) -> default exclusive
-				{ min: 4, max: 10, msg: '出单大部分为中等规格，可作为利润品', color: '#25c260' }, // Green
-                // "大于10小于20" (>= 10 && < 20) -> includeMin: true
-				{ min: 10, max: 20, includeMin: true, msg: '出单大部分为高规格，可作为利润品。', color: '#25c260' }, // Green
-                // "大于20" (>= 20) -> includeMin: true
-				{ min: 20, includeMin: true, msg: '出单大部分为超高规格，可作为高额利润品。', color: '#25c260' } // Green
-			]
+				// "大于4且小于10" -> 默认开区间 (不包含端点)
+				{
+					min: 4,
+					max: 10,
+					msg: '出单大部分为中等规格，可作为利润品',
+					color: '#25c260',
+				}, // 绿色
+				// "大于等于10且小于20" -> 包含最小值: true
+				{
+					min: 10,
+					max: 20,
+					includeMin: true,
+					msg: '出单大部分为高规格，可作为利润品。',
+					color: '#25c260',
+				}, // 绿色
+				// "大于等于20" -> 包含最小值: true
+				{
+					min: 20,
+					includeMin: true,
+					msg: '出单大部分为超高规格，可作为高额利润品。',
+					color: '#25c260',
+				}, // 绿色
+			],
 		},
 
 		// 4. 综合评价配置
@@ -228,7 +254,7 @@
 			throw e;
 		}
 
-		console.log(`正在请求 ${days} 天数据 (Via Injected Script)...`);
+		console.log(`正在请求 ${days} 天数据 (通过注入脚本)...`);
 		const fullUrl = '/pc/selection/decision/pack_detail';
 		return sendInjectedRequest(fullUrl, bodyStr);
 	}
@@ -252,7 +278,7 @@
 		const productCardSales =
 			totalSales - liveSales - videoSales - imageTextSales - bindShopSales;
 
-		// C3-C6 Amount: 各渠道销售额
+		// C3-C6 销售额: 各渠道销售额
 		const liveAmount = content.live_sales_amount || 0;
 		const videoAmount = content.video_sales_amount || 0;
 		const imageTextAmount = content.image_text_sales_amount || 0;
@@ -260,7 +286,6 @@
 
 		const productCardAmount =
 			totalAmount - liveAmount - videoAmount - imageTextAmount - bindShopAmount;
-
 
 		// 除法辅助函数 (被除数为0时返回0)
 		const safeDiv = (a, b) => (b === 0 ? 0 : a / b);
@@ -293,36 +318,36 @@
 			// ... 其他用于循环的数据
 		};
 
-		// 1. Live Sales Diff (直播出单规格) Logic
+		// 1. 直播出单规格 (specDiff) 逻辑
 		const liveMatchOrderNum = content.live_match_order_num || 0;
 		const liveSalesDiff = safeDiv(liveSales, liveMatchOrderNum);
 
-		// 2. Spec Calculation (y value)
+		// 2. 规格计算 (y值)
 		let productPriceRaw =
 			productData?.data?.model?.product?.product_price?.price_label?.price || 0;
 		if (typeof productPriceRaw === 'string') {
 			productPriceRaw = parseFloat(productPriceRaw.replace(/[^\d.]/g, '')) || 0;
 		}
-		productPriceRaw = productPriceRaw / 100; // to Yuan
+		productPriceRaw = productPriceRaw / 100; // 转换为元
 
 		const livePriceVal = stats.live.price;
-		// "直播出单规格" = specDiff
+		// "直播出单规格" 对应变量 specDiff
 		const specDiff = livePriceVal - productPriceRaw;
 
-		// y value calculation
+		// 计算 y 值
 		const yValue = (0 - specDiff) / 0.9;
 		const yStr = yValue.toFixed(2);
 
-		// Selection Advice Logic
+		// 选品建议逻辑
 		let adviceList = [];
 		let goodSignals = 0;
 		let badSignals = 0;
 
-		// --- 1. Product Card Share (D2) Logic ---
+		// --- 1. 商品卡销量占比 (D2) 逻辑 ---
 		const d2Pct = stats.card.share * 100;
 		let d2Msg = '';
 
-		// Find matching rule for D2
+		// 查找符合 D2 的规则
 		for (const rule of SELECTION_CONFIG.cardShare.rules) {
 			if (d2Pct < rule.max) {
 				d2Msg = rule.msg;
@@ -331,16 +356,16 @@
 		}
 		adviceList.push({msg: d2Msg, type: 'share'});
 
-		// Determine Share Color Status for Overall Logic
+		// 确定用于综合逻辑的占比颜色状态
 		const isD2Green = d2Pct > SELECTION_CONFIG.cardShare.greenThreshold;
 		const isD2Red = d2Pct < SELECTION_CONFIG.cardShare.redThreshold;
 
-		// --- 2. Product Card Daily Sales (E2) Logic ---
+		// --- 2. 商品卡日均销售单数 (E2) 逻辑 ---
 		const e2 = stats.card.daily;
 		let e2Msg = '';
 		let e2Color = '#e0e0e0';
 
-		// Find matching rule for E2
+		// 查找符合 E2 的规则
 		for (const rule of SELECTION_CONFIG.cardDaily.rules) {
 			if (e2 < rule.max) {
 				e2Msg = rule.msg;
@@ -352,12 +377,12 @@
 			}
 		}
 
-		// Calculate E2 Green Color based on special conditions
+		// 基于特殊条件计算 E2 绿色逻辑
 		let isE2Green = false;
 		for (const cond of SELECTION_CONFIG.cardDaily.greenConditions) {
-			// Check if condition matches
-			// cond: { shareMax: 13, dailyMin: 500 } -> if d2 < 13 && e2 > 500
-			// cond: { shareMin: 13, dailyMin: 200 } -> if d2 >= 13 && e2 > 200
+			// 检查条件是否匹配
+			// 条件: { shareMax: 13, dailyMin: 500 } -> 如果 d2 < 13 且 e2 > 500
+			// 条件: { shareMin: 13, dailyMin: 200 } -> 如果 d2 >= 13 且 e2 > 200
 
 			let match = true;
 			if (cond.shareMax !== undefined && d2Pct >= cond.shareMax) match = false;
@@ -371,182 +396,64 @@
 		}
 
 		if (isE2Green) {
-			e2Color = '#25c260'; // Green
+			e2Color = '#25c260'; // 绿色
 			goodSignals++;
 		}
 
-		const isE2Red = e2Color === '#ff4d4f'; // Already determined by rules loop
+		const isE2Red = e2Color === '#ff4d4f'; // 已在规则循环中确定
 		adviceList.push({msg: e2Msg, type: 'daily'});
 
-		// --- 3. Live Spec (specDiff) Logic ---
+		// --- 3. 直播出单规格 (specDiff) 逻辑 ---
 		let specMsg = '';
 		let specColor = '#e0e0e0';
 		let isSpecGreen = false;
 		let isSpecRed = false;
 
-		// Find matching rule for Spec
-		// Sorted check? The config rules need to be checked in order or ranges.
-		// SELECTION_CONFIG.liveSpec.rules has mix of max only (negative) and min/max (positive)
-
+		// 查找符合规格的规则
 		for (const rule of SELECTION_CONFIG.liveSpec.rules) {
-			let match = true;
-			// Check max (upper bound, exclusive usually for negative in previous code, let's correspond)
-			// Previous code: < 0, <= -2, <= -5.
-			// Config logic needs to be robust.
-			// Let's assume inclusive/exclusive based on standard logic or explicit config.
-			// Simplified: if rule has max, check <= max. if rule has min, check >= min.
-			// But previous logic was specific: > -5 && <= -2.
+			let matchMin = true;
+			let matchMax = true;
 
-			// Let's refine the loop to be first-match for robust ranges?
-			// "出单大部分严重亏损" (<= -5) should be checked first?
-			// It's safer to check specific ranges.
+			if (rule.min !== undefined) {
+				// 默认不包含最小值 (> min)，除非指定 includeMin: true
+				if (rule.includeMin) {
+					if (specDiff < rule.min) matchMin = false;
+				} else {
+					if (specDiff <= rule.min) matchMin = false;
+				}
+			}
 
-			if (rule.max !== undefined && specDiff > rule.max) match = false; // logic: if val > max, it doesn't fit "up to max"
-			// Wait, previous logic: <= -5. So if specDiff is -6, it matches max: -5.
-			// If specDiff is -3, it fails max: -5.
-			// BUT, if we just iterate list, order matters.
+			if (rule.max !== undefined) {
+				// 默认不包含最大值 (< max)，除非指定 includeMax: true
+				if (rule.includeMax) {
+					if (specDiff > rule.max) matchMax = false;
+				} else {
+					if (specDiff >= rule.max) matchMax = false;
+				}
+			}
 
-			// Let's rewrite condition checking to be explicit based on min/max in rule.
-			if (rule.min !== undefined && specDiff < rule.min) match = false;
-			if (rule.max !== undefined && specDiff >= rule.max) match = false; // Using >= means max is exclusive upper bound?
-			// Previous: <= -2. So -2 IS included.
-			// Let's adjust:
-			// <= -5
-			// > -5 && <= -2
-			// > -2 && < 0
-
-			// Let's use specific logic for the config structure I designed:
-			// "max: -5" -> I need to know if it's <= or <.
-			// To support the complexity, I will just hardcode the check logic to match the config's intent.
-
-			// Actually, let's look at the config I wrote:
-			// { max: -5 }
-			// { max: -2 } -> implies > -5 and <= -2 if ordered?
-			// Let's stick to the previous hardcoded logic but pull VALUES from config?
-			// The user wanted "Conditions organized".
-			// So I should implement a generic range checker.
-
-			// Generic Range Check:
-			// value within [min, max).
-			// handling open ends (-Infinity, Infinity).
-
-			const min = rule.min !== undefined ? rule.min : -Infinity;
-			const max = rule.max !== undefined ? rule.max : Infinity;
-
-			// Check: min < val <= max ?? Or min <= val < max?
-			// Rule: <= -5. So (-Inf, -5].
-			// Rule: > -5 && <= -2. So (-5, -2].
-			// Rule: > -2 && < 0. So (-2, 0).
-			// Rule: > 4 && < 10. So (4, 10).
-			// Rule: >= 10 && < 20. So [10, 20).
-			// Rule: >= 20. So [20, Inf).
-
-			// It varies! :D
-			// I will implement a custom check that fits the most common pattern or adds explicit bounds.
-			// Let's rely on the config having min/max and use strict comparison for safety, or iterate carefully.
-
-			// Adjusted Loop Strategy:
-			// Check if valid.
-			if (specDiff >= min && specDiff < max) {
-				// Special handling for edge cases mentioned?
-				// The previous code had mix of <= and <.
-				// Let's try to honor the specific "inclusive/exclusive" nature if possible or simplify.
-				// Simplification for maintenance: [min, max).
-				// Let's patch config to be fully [min, max) compatible equivalents?
-				// <= -5 -> (-Inf, -4.999]? No.
-				// Let's just use the config I wrote and interpret:
-				// If min defined: val >= min.
-				// If max defined: val < max.
-				// EXCEPT for the negative ones where previous was <=.
-				// Let's look at coverage.
-            const min = rule.min !== undefined ? rule.min : NEG_INF;
-            const max = rule.max !== undefined ? rule.max : POS_INF;
-            
-            // Check [min, max) strictly? or mixed?
-            // Replicating previous logic precisely:
-            // max: -5 -> check <= -5
-            // max: -2 -> check > -5 && <= -2
-            // max: 0 -> check > -2 && < 0
-            
-            // This is mixed inclusive/exclusive. 
-            // I will implement a custom match function for the refactor to be perfect, 
-            // OR I will simply hardcode the condition in the config IF I could (but I can't put functions in JSON easily if user wants to edit text file, forcing them to know JS).
-            
-            // Let's assume standard [min, max) but handle the specific edge cases by small offsets if user edits?
-            // No, better to make the code flexible.
-            
-            // Let's use the explicit logic derived from "min/max" presence.
-            // If only max is present and negative: assume <= max (Legacy red zone)
-            // If min and max present: assume min < val < max (Middle zones) or min <= val < max?
-            // "GreaterThan -5 AND LessThanEqualTo -2".
-            
-            // I will use a simplified logic that works for the standard cases:
-            // Match if: (min === undefined || specDiff > min) && (specDiff <= max if maxIsInclusive else specDiff < max)
-            // Too complex for a simple config object?
-            
-            // Let's go with:
-            // Iterating through the rules sequentially allows simpler "max" checks if sorted.
-            // If I sort rules by max value ascending?
-            // -5, -2, 0, 4, 10, 20...
-            // If val <= -5 -> match first.
-            // Else if val <= -2 -> match second.
-            // Else if val < 0 -> match third.
-            // Else ...
-            // This works! Sequential check is powerful.
-            
-            // But wait, the positive rules are: > 4 && < 10. (So 4 is NOT included? 10 is NOT included?)
-            // >= 10 && < 20. (10 IS included).
-            
-            // I will add `includeMin` and `includeMax` to config to be explicit.
-            // User can edit these booleans.
-            
-            let matchMin = true;
-            let matchMax = true;
-            
-            if (rule.min !== undefined) {
-                // Default to inclusive if not specified? Or exclusive? 
-                // Previous: > -5 (Exclusive), > -2 (Exclusive), > 4 (Exclusive), >= 10 (Inclusive).
-                // Let's default to Exclusive (> min) unless includeMin: true.
-                if (rule.includeMin) {
-                   if (specDiff < rule.min) matchMin = false;
-                } else {
-                   if (specDiff <= rule.min) matchMin = false;
-                }
-            }
-            
-            if (rule.max !== undefined) {
-                // Default to Exclusive (< max) unless includeMax: true.
-                // Previous: <= -5 (Inclusive), <= -2 (Inclusive), < 0 (Exclusive), < 10 (Exclusive).
-                 if (rule.includeMax) {
-                   if (specDiff > rule.max) matchMax = false;
-                } else {
-                   if (specDiff >= rule.max) matchMax = false;
-                }
-            }
-            
-            if (matchMin && matchMax) {
-                specMsg = rule.msg.replace('{y}', yStr);
-                if (rule.color) {
-                    specColor = rule.color;
-                     if (rule.color === '#ff4d4f') {
-                        isSpecRed = true;
-                        badSignals++;
-                     }
-                     if (rule.color === '#25c260') {
-                        isSpecGreen = true;
-                        goodSignals++;
-                     }
-                }
-                break; // Found match
-            }
+			if (matchMin && matchMax) {
+				specMsg = rule.msg.replace('{y}', yStr);
+				if (rule.color) {
+					specColor = rule.color;
+					if (rule.color === '#ff4d4f') {
+						isSpecRed = true;
+						badSignals++;
+					}
+					if (rule.color === '#25c260') {
+						isSpecGreen = true;
+						goodSignals++;
+					}
+				}
+				break; // 找到匹配规则
+			}
 		}
 
-		// Fallback
+		// 兜底逻辑
 		if (!specMsg) specMsg = `直播出单规格: ${specDiff.toFixed(2)}`;
 		adviceList.push({msg: specMsg, type: 'spec', color: specColor || ''});
-		
-		
-		// --- 4. Overall Recommendation Logic ---
+
+		// --- 4. 综合推荐逻辑 ---
 		let overallHtml = '';
 		let overallStatus = 'normal';
 
@@ -942,9 +849,6 @@
 
 		toggleBtn.onclick = null; // 移除之前的事件处理程序引用
 
-		// Advice Container logic (inserted previously)
-		// ...
-
 		// 更新切换逻辑以同时控制两者显示
 		toggleBtn.onclick = (e) => {
 			e.stopPropagation();
@@ -957,8 +861,8 @@
 			if (adviceContainer) adviceContainer.style.display = displayBlock;
 		};
 
-		// container.appendChild(tablesContainer); // REMOVED (Added above)
-		// container.appendChild(adviceContainer); // Added above
+		// container.appendChild(tablesContainer); // 已移除 (在上面已添加)
+		// container.appendChild(adviceContainer); // 在上面已添加
 
 		document.body.appendChild(container);
 	}
@@ -974,7 +878,7 @@
 		}
 
 		try {
-			// 1. 获取 ewid 并请求 pack_detail (Product Info)
+			// 1. 获取 ewid 并请求 pack_detail (商品信息)
 			let productData = {};
 
 			try {
@@ -984,12 +888,12 @@
 				);
 				productData = productRes;
 			} catch (e) {
-				console.error('Failed to fetch product data:', e);
+				console.error('获取商品数据失败:', e);
 			}
 
 			// 2. 请求 7/30 天数据
 			const ranges = [7, 30];
-			// We can pass empty string for originalBodyStr as it is not used for logic anymore
+			// 我们可以传递空字符串作为 originalBodyStr，因为它不再用于逻辑
 			const promises = ranges.map((days) =>
 				fetchDataFordays(days, promotionId, decision_enter_from)
 			);
