@@ -39,6 +39,7 @@
 				const promotions = resData.data.summary_promotions;
 				savedPromotions = savedPromotions.concat(promotions);
 			}
+			console.log(savedPromotions);
 			// 数据更新后尝试注入按钮
 			setTimeout(injectButtons, 500);
 		} catch (e) {
