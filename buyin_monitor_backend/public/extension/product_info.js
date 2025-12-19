@@ -573,9 +573,6 @@
 					} = <span style="font-weight:bold; color: #fff;">${specStat.val.toFixed(
 			2
 		)}</span>
-                    <span style="margin-left:8px; color:#aaa;">(y值: ${
-											specStat.y
-										})</span>
 				</div>
 			</div>
 		`;
