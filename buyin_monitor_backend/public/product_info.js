@@ -530,7 +530,11 @@
 		document.body.appendChild(container);
 	}
 
-	async function analyzeAndShow(promotionId, decision_enter_from) {
+	async function analyzeAndShow(
+		promotionId,
+		decision_enter_from,
+		skipPopup = false
+	) {
 		if (!promotionId) {
 			alert('Promotion ID 不能为空');
 			return;
@@ -558,10 +562,28 @@
 			);
 			const results = await Promise.all(promises);
 
-			showPopup(results, ranges, productData, promotionId, decision_enter_from);
+			if (!skipPopup) {
+				showPopup(
+					results,
+					ranges,
+					productData,
+					promotionId,
+					decision_enter_from
+				);
+			}
+
+			return {
+				results,
+				ranges,
+				productData,
+				promotionId,
+			};
 		} catch (error) {
 			console.error('获取数据失败', error);
-			alert('analyzeAndShow 获取数据失败: ' + error.message);
+			if (!skipPopup) {
+				alert('analyzeAndShow 获取数据失败: ' + error.message);
+			}
+			throw error;
 		}
 	}
 

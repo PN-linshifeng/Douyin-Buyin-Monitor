@@ -7,6 +7,8 @@
 
 	// 存储抓取到的商品推广信息缓存
 	let savedPromotions = [];
+	// 存储批量抓取的结果
+	let batchResultsMap = new Map();
 
 	// 处理接口返回的列表数据
 	function processList(payload) {
@@ -135,8 +137,107 @@
 		});
 	}
 
+	// 批量分析处理函数
+	async function handleBatchAnalyze(btn) {
+		if (savedPromotions.length === 0) {
+			alert('当前没有缓存的商品数据，请先滚动页面加载商品');
+			return;
+		}
+
+		const originalText = btn.innerText;
+		btn.innerText = '分析中...';
+		btn.disabled = true;
+		batchResultsMap.clear();
+
+		console.log(`[批量分析] 开始处理 ${savedPromotions.length} 个商品...`);
+
+		let successCount = 0;
+		let failCount = 0;
+
+		for (const promo of savedPromotions) {
+			const promotionId = promo.promotion_id;
+			if (!promotionId) continue;
+
+			// 检查 Map 中是否已存在（去重）
+			if (batchResultsMap.has(promotionId)) continue;
+
+			// 决策来源 (模拟)
+			const decision_enter_from = 'pc.selection_square.recommend_main';
+
+			try {
+				if (window.ProductInfo && window.ProductInfo.analyzeAndShow) {
+					// skipPopup = true
+					const result = await window.ProductInfo.analyzeAndShow(
+						promotionId,
+						decision_enter_from,
+						true
+					);
+					batchResultsMap.set(promotionId, result);
+					successCount++;
+					console.log(
+						`[批量分析] 成功: ${promo?.base_model?.product_info?.name}`
+					);
+				} else {
+					console.error('ProductInfo 模块未加载');
+					failCount++;
+				}
+			} catch (e) {
+				console.error(`[批量分析] 失败 ID: ${promotionId}`, e);
+				failCount++;
+			}
+
+			// 简单的防频控延时
+			await new Promise((r) => setTimeout(r, 300));
+		}
+
+		console.log('[批量分析] 完成!');
+		console.log(`成功: ${successCount}, 失败: ${failCount}`);
+		console.log('结果 Map:', batchResultsMap);
+		alert(
+			`批量分析完成\n成功: ${successCount}\n失败: ${failCount}\n结果已打印到控制台 (batchResultsMap)`
+		);
+
+		btn.innerText = originalText;
+		btn.disabled = false;
+	}
+
+	// 注入批量分析按钮
+	function injectBatchButton() {
+		if (
+			window.location.href.indexOf('/dashboard/merch-picking-library?') === -1
+		)
+			return;
+		if (document.getElementById('douyin-monitor-batch-btn')) return;
+
+		const btn = document.createElement('button');
+		btn.id = 'douyin-monitor-batch-btn';
+		btn.innerText = '批量分析本页商品';
+		btn.style.cssText = `
+            position: fixed;
+            top: 80px;
+            right: 20px;
+            padding: 8px 16px;
+            background-color: #25c260;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 14px;
+            z-index: 9999;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.2);
+        `;
+
+		btn.onclick = () => {
+			handleBatchAnalyze(btn);
+		};
+
+		document.body.appendChild(btn);
+	}
+
 	// 初始化函数
 	function init() {
+		// 尝试注入批量按钮
+		injectBatchButton();
 		// 初始检查
 		// 等待页面渲染
 
