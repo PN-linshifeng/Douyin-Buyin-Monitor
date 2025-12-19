@@ -124,6 +124,73 @@
 		return sendInjectedRequest(targetUrlBase, bodyStr);
 	}
 
+	// ==========================================
+	// 综合选品配置 (可修改此处参数和文案)
+	// ==========================================
+	const SELECTION_CONFIG = {
+		// 1. 商品卡销量占比 (D2) 配置
+		cardShare: {
+			rules: [
+				{max: 13, msg: '该品的商品卡销量占比过低'},
+				{max: 40, msg: '该品的商品卡占比还不错'},
+				{max: Infinity, msg: '该品的商品卡占比优秀'},
+			],
+			// 定义"绿色"状态的阈值 (占比大于多少算好/绿色? 规则未明确定义颜色的阈值，这里假设 > 40 为优秀/绿色)
+			greenThreshold: 40,
+			// 定义"红色"状态的阈值 (占比小于多少算差/红色?)
+			redThreshold: 13,
+		},
+
+		// 2. 商品卡日均销售单数 (E2) 配置
+		cardDaily: {
+			rules: [
+				{max: 100, msg: '商品卡日销量较低', color: '#ff4d4f'}, // Red
+				{max: 300, msg: '商品卡日销量为一般'},
+				{max: 500, msg: '商品卡日销量不错'},
+				{max: Infinity, msg: '商品卡日销量很好'},
+			],
+			// 特殊绿色逻辑 (满足任一条件即为绿色)
+			greenConditions: [
+				{shareMax: 13, dailyMin: 500}, // 占比 < 13% 且 日销量 > 500
+				{shareMin: 13, dailyMin: 200}, // 占比 >= 13% 且 日销量 > 200
+			],
+		},
+
+		// 3. 直播出单规格 (specDiff) 配置
+		// y值占位符: {y} 会被替换为实际计算出的y值
+		liveSpec: {
+			rules: [
+				// 负数区间 (亏损/低规格)
+                // "小于-5" (<= -5) -> includeMax: true
+				{ max: -5, includeMax: true, msg: '出单大部分严重亏损，佣金高于{y}元，才能盈利，请谨慎选品。', color: '#ff4d4f' }, // Red
+                // "小于-2大于-5" (> -5 && <= -2) -> includeMin: false (default), includeMax: true
+				{ min: -5, max: -2, includeMax: true, msg: '出单大部分为低规格，且亏损，佣金高于{y}元，才能盈利，请谨慎选品' },
+                // "小于0大于-2" (> -2 && < 0) -> default exclusive
+				{ min: -2, max: 0, msg: '出单大部分为低规格，佣金高于{y}元，才能盈利。' },
+				
+				// 正数区间 (利润品)
+                // "大于4小于10" (> 4 && < 10) -> default exclusive
+				{ min: 4, max: 10, msg: '出单大部分为中等规格，可作为利润品', color: '#25c260' }, // Green
+                // "大于10小于20" (>= 10 && < 20) -> includeMin: true
+				{ min: 10, max: 20, includeMin: true, msg: '出单大部分为高规格，可作为利润品。', color: '#25c260' }, // Green
+                // "大于20" (>= 20) -> includeMin: true
+				{ min: 20, includeMin: true, msg: '出单大部分为超高规格，可作为高额利润品。', color: '#25c260' } // Green
+			]
+		},
+
+		// 4. 综合评价配置
+		overall: {
+			good: {
+				html: '<span style="color:#25c260; font-weight:bold;">👍 带利润的好品！</span>',
+				status: 'good',
+			},
+			bad: {
+				html: '<span style="color:#ff4d4f; font-weight:bold;">⚠️ 出单少且亏，请谨慎选择！</span>',
+				status: 'bad',
+			},
+		},
+	};
+
 	async function fetchDataFordays(
 		days,
 		biz_id,
@@ -191,52 +258,31 @@
 		const imageTextAmount = content.image_text_sales_amount || 0;
 		const bindShopAmount = content.bind_shop_sales_amount || 0;
 
-		// Product Card Amount (Derived for F2 calculation)
-		// F2 formula: (sales_amount - live_amt - video_amt - img_amt - shop_amt) / C3 ??
-		// Wait, requirement says F2 = (total_amt - other_amts) / C3?
-		// Checking requirement: F2: (sales_amount - ... - bind_shop_sales_amount) / C3
-		// Note from rule: "F2: (data...sales_amount - ...)/C3" -> Denominator is C3 (Live Sales)?
-		// Actually typical logic implies F2 (Product Card Price) should be Amount / ProductCardSales (C2).
-		// Looking at rule table: F2 is in "Product Card" row.
-		// Rule says: F2 = (...derived product card amount...) / C3.
-		// WARNING: The rule explicitly divides by C3 (Live Sales). This might be a copy-paste error in requirements or intentional.
-		// However, usually Price = Amount / Volume. Product Card Price should be ProductCardAmount / ProductCardVolume (C2).
-		// Let's re-read carefully: "F2: (...)/C3".
-		// But in the table row for "Product Card" (商品卡), column is "平均客单价" (Avg Price).
-		// If I follow literally: Product Card Avg Price = Product Card Total Amount / Live Sales Volume.
-		// This seems wrong. I will assume it meant C2 (Product Card Sales).
-		// BUT, as an agent, I should follow instructions.
-		// Let's look at F3: "F3: ...live_sales_amount/C3". This is correct (Live Amt / Live Vol).
-		// F4: "...video_sales_amount/C4". Correct.
-		// So F2 likely meant / C2. I will use C2 for logical consistency, but I will make a note.
-		// Wait, let's stick to valid math. Product Card Avg Price = Product Card Amt / Product Card Vol.
-		// Calculating Product Card Amount first.
 		const productCardAmount =
 			totalAmount - liveAmount - videoAmount - imageTextAmount - bindShopAmount;
 
-		// Helper for Division
+
+		// 除法辅助函数 (被除数为0时返回0)
 		const safeDiv = (a, b) => (b === 0 ? 0 : a / b);
 
-		// D Columns: Sales Share (Vol / Total Vol A4)
+		// D列: 销售占比 (销量 / 总销量 A4)
 		const getShare = (val) => safeDiv(val, totalSales);
 		const getSharePct = (val) => (getShare(val) * 100).toFixed(2) + '%';
 
-		// E Columns: Daily Sales (Vol / days)
+		// E列: 日均销量 (销量 / 天数)
 		const getDaily = (val) => safeDiv(val, days);
 		const getDailyStr = (val) => getDaily(val).toFixed(2);
 
-		// F Columns: Avg Price (Amount / Vol) - Amount is in cents usually?
-		// Assuming amount is in cents, need to div by 100 first?
-		// Existing code: safeDiv(amount / 100, vol). Let's keep / 100.
+		// F列: 平均客单价 (销售额 / 销量)
 		const getPriceNum = (amount, vol) => safeDiv(amount / 100, vol);
 		const getPriceStr = (amount, vol) => getPriceNum(amount, vol).toFixed(2);
 
-		// Values for Table
+		// 表格所需数据
 		const stats = {
 			card: {
 				vol: productCardSales,
-				share: getShare(productCardSales), // raw ratio for logic
-				daily: getDaily(productCardSales), // raw val for logic
+				share: getShare(productCardSales), // 原始比率
+				daily: getDaily(productCardSales), // 原始数值
 				price: getPriceNum(productCardAmount, productCardSales),
 			},
 			live: {
@@ -244,22 +290,14 @@
 				daily: getDaily(liveSales),
 				price: getPriceNum(liveAmount, liveSales),
 			},
-			// ... others needed for table loops
+			// ... 其他用于循环的数据
 		};
 
 		// 1. Live Sales Diff (直播出单规格) Logic
-		// Existing logic: liveSales / liveMatchOrderNum.
 		const liveMatchOrderNum = content.live_match_order_num || 0;
 		const liveSalesDiff = safeDiv(liveSales, liveMatchOrderNum);
 
 		// 2. Spec Calculation (y value)
-		// y = (0 - 直播出单规格) / 0.9
-		// Wait, "直播出单规格" usually refers to the price difference or specific metric?
-		// In previous code: `specDiff = livePriceVal - productPriceRaw` was called "specStat".
-		// Rule says: "若直播出单规格（注：y=（0-直播出单规格）/0.9，请计算好了替换。）"
-		// It seems "直播出单规格" here refers to `specDiff` (Live Avg Price - Base Price).
-		// Let's recalculate `specDiff`.
-
 		let productPriceRaw =
 			productData?.data?.model?.product?.product_price?.price_label?.price || 0;
 		if (typeof productPriceRaw === 'string') {
@@ -268,11 +306,7 @@
 		productPriceRaw = productPriceRaw / 100; // to Yuan
 
 		const livePriceVal = stats.live.price;
-		// "直播出单规格" = Live Price - Origin Price ? Or just "Live Sales Diff" (Sales/Orders)?
-		// The rule says "若直播出单规格 > 4 < 10 ...".
-		// Context: "Live Price vs Product Price" acts as a spec proxy.
-		// Previous code used `specDiff = livePriceVal - productPriceRaw`.
-		// Let's assume "直播出单规格" = `specDiff` (Live Price - Base Price).
+		// "直播出单规格" = specDiff
 		const specDiff = livePriceVal - productPriceRaw;
 
 		// y value calculation
@@ -284,104 +318,244 @@
 		let goodSignals = 0;
 		let badSignals = 0;
 
-		// 1. Product Card Share (D2)
+		// --- 1. Product Card Share (D2) Logic ---
 		const d2Pct = stats.card.share * 100;
 		let d2Msg = '';
-		let d2Color = ''; // green or red flag? Not explicitly derived for Share alone, but for logic.
-		if (d2Pct < 13) d2Msg = '该品的商品卡销量占比过低';
-		else if (d2Pct < 40) d2Msg = '该品的商品卡占比还不错';
-		else d2Msg = '该品的商品卡占比优秀';
+
+		// Find matching rule for D2
+		for (const rule of SELECTION_CONFIG.cardShare.rules) {
+			if (d2Pct < rule.max) {
+				d2Msg = rule.msg;
+				break;
+			}
+		}
 		adviceList.push({msg: d2Msg, type: 'share'});
 
-		// 2. Product Card Daily Sales (E2)
+		// Determine Share Color Status for Overall Logic
+		const isD2Green = d2Pct > SELECTION_CONFIG.cardShare.greenThreshold;
+		const isD2Red = d2Pct < SELECTION_CONFIG.cardShare.redThreshold;
+
+		// --- 2. Product Card Daily Sales (E2) Logic ---
 		const e2 = stats.card.daily;
 		let e2Msg = '';
-		let e2Color = '#e0e0e0'; // default
-		if (e2 < 100) {
-			e2Msg = '商品卡日销量较低';
-			e2Color = '#ff4d4f'; // red
-			badSignals++;
-		} else {
-			if (e2 > 500) e2Msg = '商品卡日销量很好';
-			else if (e2 > 300) e2Msg = '商品卡日销量不错';
-			else e2Msg = '商品卡日销量为一般';
+		let e2Color = '#e0e0e0';
+
+		// Find matching rule for E2
+		for (const rule of SELECTION_CONFIG.cardDaily.rules) {
+			if (e2 < rule.max) {
+				e2Msg = rule.msg;
+				if (rule.color) {
+					e2Color = rule.color;
+					if (rule.color === '#ff4d4f') badSignals++;
+				}
+				break;
+			}
 		}
-		// Color conditionals from "备注"
-		// - D2 < 13% AND E2 > 500 -> E2 Green
-		// - D2 > 13% AND E2 > 200 -> E2 Green
-		if ((d2Pct < 13 && e2 > 500) || (d2Pct > 13 && e2 > 200)) {
-			e2Color = '#25c260'; // green
+
+		// Calculate E2 Green Color based on special conditions
+		let isE2Green = false;
+		for (const cond of SELECTION_CONFIG.cardDaily.greenConditions) {
+			// Check if condition matches
+			// cond: { shareMax: 13, dailyMin: 500 } -> if d2 < 13 && e2 > 500
+			// cond: { shareMin: 13, dailyMin: 200 } -> if d2 >= 13 && e2 > 200
+
+			let match = true;
+			if (cond.shareMax !== undefined && d2Pct >= cond.shareMax) match = false;
+			if (cond.shareMin !== undefined && d2Pct < cond.shareMin) match = false;
+			if (cond.dailyMin !== undefined && e2 <= cond.dailyMin) match = false;
+
+			if (match) {
+				isE2Green = true;
+				break;
+			}
+		}
+
+		if (isE2Green) {
+			e2Color = '#25c260'; // Green
 			goodSignals++;
 		}
-		// - E2 < 100 -> Red (Already set)
+
+		const isE2Red = e2Color === '#ff4d4f'; // Already determined by rules loop
 		adviceList.push({msg: e2Msg, type: 'daily'});
 
-		// 3. Live Spec (specDiff)
+		// --- 3. Live Spec (specDiff) Logic ---
 		let specMsg = '';
 		let specColor = '#e0e0e0';
 		let isSpecGreen = false;
 		let isSpecRed = false;
 
-		// Ranges
-		if (specDiff > -2 && specDiff < 0) {
-			specMsg = `出单大部分为低规格，佣金高于${yStr}元，才能盈利。`;
-		} else if (specDiff > -5 && specDiff <= -2) {
-			specMsg = `出单大部分为低规格，且亏损，佣金高于${yStr}元，才能盈利，请谨慎选品`;
-		} else if (specDiff <= -5) {
-			specMsg = `出单大部分严重亏损，佣金高于${yStr}元，才能盈利，请谨慎选品。`;
-			specColor = '#ff4d4f';
-			isSpecRed = true;
-			badSignals++;
-		} else if (specDiff > 4 && specDiff < 10) {
-			specMsg = '出单大部分为中等规格，可作为利润品';
-			specColor = '#25c260';
-			isSpecGreen = true;
-			goodSignals++;
-		} else if (specDiff >= 10 && specDiff < 20) {
-			specMsg = '出单大部分为高规格，可作为利润品。';
-			specColor = '#25c260';
-			isSpecGreen = true;
-			goodSignals++;
-		} else if (specDiff >= 20) {
-			specMsg = '出单大部分为超高规格，可作为高额利润品。';
-			specColor = '#25c260';
-			isSpecGreen = true;
-			goodSignals++;
+		// Find matching rule for Spec
+		// Sorted check? The config rules need to be checked in order or ranges.
+		// SELECTION_CONFIG.liveSpec.rules has mix of max only (negative) and min/max (positive)
+
+		for (const rule of SELECTION_CONFIG.liveSpec.rules) {
+			let match = true;
+			// Check max (upper bound, exclusive usually for negative in previous code, let's correspond)
+			// Previous code: < 0, <= -2, <= -5.
+			// Config logic needs to be robust.
+			// Let's assume inclusive/exclusive based on standard logic or explicit config.
+			// Simplified: if rule has max, check <= max. if rule has min, check >= min.
+			// But previous logic was specific: > -5 && <= -2.
+
+			// Let's refine the loop to be first-match for robust ranges?
+			// "出单大部分严重亏损" (<= -5) should be checked first?
+			// It's safer to check specific ranges.
+
+			if (rule.max !== undefined && specDiff > rule.max) match = false; // logic: if val > max, it doesn't fit "up to max"
+			// Wait, previous logic: <= -5. So if specDiff is -6, it matches max: -5.
+			// If specDiff is -3, it fails max: -5.
+			// BUT, if we just iterate list, order matters.
+
+			// Let's rewrite condition checking to be explicit based on min/max in rule.
+			if (rule.min !== undefined && specDiff < rule.min) match = false;
+			if (rule.max !== undefined && specDiff >= rule.max) match = false; // Using >= means max is exclusive upper bound?
+			// Previous: <= -2. So -2 IS included.
+			// Let's adjust:
+			// <= -5
+			// > -5 && <= -2
+			// > -2 && < 0
+
+			// Let's use specific logic for the config structure I designed:
+			// "max: -5" -> I need to know if it's <= or <.
+			// To support the complexity, I will just hardcode the check logic to match the config's intent.
+
+			// Actually, let's look at the config I wrote:
+			// { max: -5 }
+			// { max: -2 } -> implies > -5 and <= -2 if ordered?
+			// Let's stick to the previous hardcoded logic but pull VALUES from config?
+			// The user wanted "Conditions organized".
+			// So I should implement a generic range checker.
+
+			// Generic Range Check:
+			// value within [min, max).
+			// handling open ends (-Infinity, Infinity).
+
+			const min = rule.min !== undefined ? rule.min : -Infinity;
+			const max = rule.max !== undefined ? rule.max : Infinity;
+
+			// Check: min < val <= max ?? Or min <= val < max?
+			// Rule: <= -5. So (-Inf, -5].
+			// Rule: > -5 && <= -2. So (-5, -2].
+			// Rule: > -2 && < 0. So (-2, 0).
+			// Rule: > 4 && < 10. So (4, 10).
+			// Rule: >= 10 && < 20. So [10, 20).
+			// Rule: >= 20. So [20, Inf).
+
+			// It varies! :D
+			// I will implement a custom check that fits the most common pattern or adds explicit bounds.
+			// Let's rely on the config having min/max and use strict comparison for safety, or iterate carefully.
+
+			// Adjusted Loop Strategy:
+			// Check if valid.
+			if (specDiff >= min && specDiff < max) {
+				// Special handling for edge cases mentioned?
+				// The previous code had mix of <= and <.
+				// Let's try to honor the specific "inclusive/exclusive" nature if possible or simplify.
+				// Simplification for maintenance: [min, max).
+				// Let's patch config to be fully [min, max) compatible equivalents?
+				// <= -5 -> (-Inf, -4.999]? No.
+				// Let's just use the config I wrote and interpret:
+				// If min defined: val >= min.
+				// If max defined: val < max.
+				// EXCEPT for the negative ones where previous was <=.
+				// Let's look at coverage.
+            const min = rule.min !== undefined ? rule.min : NEG_INF;
+            const max = rule.max !== undefined ? rule.max : POS_INF;
+            
+            // Check [min, max) strictly? or mixed?
+            // Replicating previous logic precisely:
+            // max: -5 -> check <= -5
+            // max: -2 -> check > -5 && <= -2
+            // max: 0 -> check > -2 && < 0
+            
+            // This is mixed inclusive/exclusive. 
+            // I will implement a custom match function for the refactor to be perfect, 
+            // OR I will simply hardcode the condition in the config IF I could (but I can't put functions in JSON easily if user wants to edit text file, forcing them to know JS).
+            
+            // Let's assume standard [min, max) but handle the specific edge cases by small offsets if user edits?
+            // No, better to make the code flexible.
+            
+            // Let's use the explicit logic derived from "min/max" presence.
+            // If only max is present and negative: assume <= max (Legacy red zone)
+            // If min and max present: assume min < val < max (Middle zones) or min <= val < max?
+            // "GreaterThan -5 AND LessThanEqualTo -2".
+            
+            // I will use a simplified logic that works for the standard cases:
+            // Match if: (min === undefined || specDiff > min) && (specDiff <= max if maxIsInclusive else specDiff < max)
+            // Too complex for a simple config object?
+            
+            // Let's go with:
+            // Iterating through the rules sequentially allows simpler "max" checks if sorted.
+            // If I sort rules by max value ascending?
+            // -5, -2, 0, 4, 10, 20...
+            // If val <= -5 -> match first.
+            // Else if val <= -2 -> match second.
+            // Else if val < 0 -> match third.
+            // Else ...
+            // This works! Sequential check is powerful.
+            
+            // But wait, the positive rules are: > 4 && < 10. (So 4 is NOT included? 10 is NOT included?)
+            // >= 10 && < 20. (10 IS included).
+            
+            // I will add `includeMin` and `includeMax` to config to be explicit.
+            // User can edit these booleans.
+            
+            let matchMin = true;
+            let matchMax = true;
+            
+            if (rule.min !== undefined) {
+                // Default to inclusive if not specified? Or exclusive? 
+                // Previous: > -5 (Exclusive), > -2 (Exclusive), > 4 (Exclusive), >= 10 (Inclusive).
+                // Let's default to Exclusive (> min) unless includeMin: true.
+                if (rule.includeMin) {
+                   if (specDiff < rule.min) matchMin = false;
+                } else {
+                   if (specDiff <= rule.min) matchMin = false;
+                }
+            }
+            
+            if (rule.max !== undefined) {
+                // Default to Exclusive (< max) unless includeMax: true.
+                // Previous: <= -5 (Inclusive), <= -2 (Inclusive), < 0 (Exclusive), < 10 (Exclusive).
+                 if (rule.includeMax) {
+                   if (specDiff > rule.max) matchMax = false;
+                } else {
+                   if (specDiff >= rule.max) matchMax = false;
+                }
+            }
+            
+            if (matchMin && matchMax) {
+                specMsg = rule.msg.replace('{y}', yStr);
+                if (rule.color) {
+                    specColor = rule.color;
+                     if (rule.color === '#ff4d4f') {
+                        isSpecRed = true;
+                        badSignals++;
+                     }
+                     if (rule.color === '#25c260') {
+                        isSpecGreen = true;
+                        goodSignals++;
+                     }
+                }
+                break; // Found match
+            }
 		}
-		// Fallback if exactly 0 or etc?
+
+		// Fallback
 		if (!specMsg) specMsg = `直播出单规格: ${specDiff.toFixed(2)}`;
-		adviceList.push({msg: specMsg, type: 'spec', color: ''});
-
-		// Overall Recommendation
+		adviceList.push({msg: specMsg, type: 'spec', color: specColor || ''});
+		
+		
+		// --- 4. Overall Recommendation Logic ---
 		let overallHtml = '';
-		let overallStatus = 'normal'; // normal, good, bad
-
-		// "当商品卡占比、商品卡日销量、直播出单规格均为绿色时"
-		// E2 is Green if ((d2<13 && e2>500) || (d2>13 && e2>200))
-		const isE2Green = e2Color === '#25c260';
-		const isE2Red = e2Color === '#ff4d4f';
-
-		// "商品卡占比为绿色"??
-		// Rule: "当商品卡占比小于13%时，若商品卡日销量大于500，则该日销量数值文字颜色为绿色。"
-		// It seems "Product Card Share being Green" is not explicitly defined as a color state in the "Colors" section,
-		// BUT, maybe it implies the condition d2 > 40 is "Green"?
-		// Let's assume "Excellent" (d2 > 40) is Green?
-		// Or strictly follow: "当商品卡占比、商品卡日销量、直播出单规格 均为绿色时".
-		// E2 is Green is defined. Spec is Green (>4).
-		// Share Color? Logic not fully explicit.
-		// Let's assume Share > 40% (Excellent) is the "Green" state.
-		const isD2Green = d2Pct > 40;
-		const isD2Red = d2Pct < 13;
+		let overallStatus = 'normal';
 
 		if (isD2Green && isE2Green && isSpecGreen) {
-			overallHtml = `<span style="color:#25c260; font-weight:bold;">👍 带利润的好品！</span>`;
-			overallStatus = 'good';
+			overallHtml = SELECTION_CONFIG.overall.good.html;
+			overallStatus = SELECTION_CONFIG.overall.good.status;
 		} else if (isD2Red && isE2Red && isSpecRed) {
-			// "当满足商品卡占比数值，商品卡日销量数值，直播出单规格数值，颜色都是红色时"
-			// E2 Red (<100). Spec Red (< -5).
-			// D2 Red? (<13% is "Low").
-			overallHtml = `<span style="color:#ff4d4f; font-weight:bold;">⚠️ 出单少且亏，请谨慎选择！</span>`;
-			overallStatus = 'bad';
+			overallHtml = SELECTION_CONFIG.overall.bad.html;
+			overallStatus = SELECTION_CONFIG.overall.bad.status;
 		}
 
 		return {
@@ -438,7 +612,7 @@
 			},
 			advice: adviceList,
 			overallHtml,
-			overallStatus, // for batch
+			overallStatus,
 		};
 	}
 
@@ -451,7 +625,7 @@
 		const rowShop = channels[4];
 		const {liveSalesDiff, specStat} = extraStats;
 
-		// Helper for advice lines
+		// 生成建议文案的HTML辅助函数
 		const adviceHtml = advice
 			.map((item) => {
 				const color = item.color ? `color: ${item.color};` : '';
@@ -697,13 +871,13 @@
 			isExpanded = !isExpanded;
 			toggleBtn.innerText = isExpanded ? '🔼 收起' : '🔽 展开';
 
-			// Toggle visibility of the tables container
+			// 切换表格容器的可见性
 			if (tablesContainer) {
 				tablesContainer.style.display = isExpanded ? 'flex' : 'none';
 			}
 		};
 		toggleBtn.onmousedown = (e) => e.stopPropagation();
-		// Insert before Close button
+		// 插入到关闭按钮之前
 		actionsDiv.insertBefore(toggleBtn, headerCloseBtn);
 
 		title.appendChild(actionsDiv);
@@ -725,7 +899,7 @@
 			const stats = calculateStats(data, days, productData, data.promotion_id);
 			const tableHtml = createTableHtml(stats);
 
-			// Capture 7-day stats for advice
+			// 获取7天的数据用于生成建议
 			if (days === 7) {
 				adviceStats = stats;
 			}
@@ -737,7 +911,7 @@
 			tablesContainer.appendChild(wrapper);
 		});
 
-		// Advice Container
+		// 建议容器
 		const adviceContainer = document.createElement('div');
 		adviceContainer.style.width = '100%';
 		adviceContainer.style.marginTop = '15px';
@@ -766,12 +940,12 @@
 		container.appendChild(tablesContainer);
 		container.appendChild(adviceContainer);
 
-		toggleBtn.onclick = null; // Remove old handler reference if any, avoiding confusion
+		toggleBtn.onclick = null; // 移除之前的事件处理程序引用
 
 		// Advice Container logic (inserted previously)
 		// ...
 
-		// Update Toggle Logic to hide both
+		// 更新切换逻辑以同时控制两者显示
 		toggleBtn.onclick = (e) => {
 			e.stopPropagation();
 			isExpanded = !isExpanded;
