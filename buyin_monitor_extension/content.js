@@ -81,6 +81,26 @@
 	}
 
 	// ===========================
+	// 0.5 指纹生成逻辑 (FingerprintJS)
+	// ===========================
+	async function getFingerprint() {
+		try {
+			// FingerprintJS 在 fp.js 加载后会挂载到 window.FingerprintJS
+			if (typeof FingerprintJS === 'undefined') {
+				console.error('FingerprintJS library not loaded');
+				return 'unknown_device_lib_missing';
+			}
+			const fp = await FingerprintJS.load();
+			// get() 返回 { visitorId: "..." }
+			const result = await fp.get();
+			return result.visitorId;
+		} catch (e) {
+			console.error('Fingerprint generation failed:', e);
+			return 'unknown_device_error';
+		}
+	}
+
+	// ===========================
 	// 1. 登录 UI & 逻辑
 	// ===========================
 	async function getBuyinAccountInfo() {
@@ -170,13 +190,16 @@
 				const buyinId = await getBuyinAccountInfo();
 				msg.innerText = '正在验证...';
 
+				// 获取指纹 (异步)
+				const fingerprint = await getFingerprint();
+
 				const proxyRes = await sendProxyRequest(
 					`${BACKEND_URL}/api/extension/login`,
 					'POST',
 					{
 						'Content-Type': 'application/json',
 					},
-					{phone, buyinId}
+					{phone, buyinId, fingerprint}
 				);
 
 				if (!proxyRes.success && !proxyRes.data) {
@@ -236,6 +259,7 @@
 			if (token) {
 				headers['Authorization'] = `Bearer ${token}`;
 			}
+			headers['x-device-fingerprint'] = await getFingerprint();
 
 			// 在调用 check-auth 时，浏览器会自动带上 localhost:3000 的 cookie (connect.sid)
 			// 前提是浏览器已设置为允许跨站 cookie 或 SameSite 策略允许。

@@ -65,9 +65,14 @@ function decrypt(cipherText) {
 
 // API: 扩展端登录
 app.post('/api/extension/login', (req, res) => {
-	const {phone, buyinId} = req.body;
+	const {phone, buyinId, fingerprint} = req.body;
 	if (!phone) {
 		return res.status(400).json({success: false, message: 'Phone is required'});
+	}
+	if (!fingerprint) {
+		return res
+			.status(400)
+			.json({success: false, message: 'Fingerprint is required'});
 	}
 
 	const users = readJson(USER_FILE);
@@ -104,13 +109,30 @@ app.post('/api/extension/login', (req, res) => {
 		}
 	}
 
+	// 检查/绑定 指纹
+	if (!foundUser.fingerprint) {
+		// 第一次登录，绑定指纹
+		users[userIndex].fingerprint = fingerprint;
+		updated = true;
+	} else {
+		// 对比指纹
+		if (foundUser.fingerprint !== fingerprint) {
+			return res.status(403).json({
+				success: false,
+				message: '设备环境发生变化，请使用之前的设备登录',
+			});
+		}
+	}
+
 	// 更新 buyinId
-	let updated = false;
 	if (buyinId && (!foundUser.buyinId || foundUser.buyinId !== buyinId)) {
 		users[userIndex].buyinId = buyinId;
+		updated = true;
+	}
+
+	if (updated) {
 		users[userIndex].updateTime = new Date().toISOString();
 		writeJson(USER_FILE, users);
-		updated = true;
 	}
 
 	// 生成 Token (简单加密用户信息和时间戳)
@@ -137,7 +159,13 @@ app.post('/api/extension/login', (req, res) => {
 
 app.get('/api/extension/check-auth', (req, res) => {
 	const authHeader = req.headers.authorization;
-	console.log('[Debug] Check-Auth Header:', authHeader);
+	const fingerprint = req.headers['x-device-fingerprint'];
+	console.log(
+		'[Debug] Check-Auth Header:',
+		authHeader,
+		'Fingerprint:',
+		fingerprint
+	);
 
 	if (authHeader) {
 		const token = authHeader.split(' ')[1]; // Bearer <token>
@@ -172,6 +200,22 @@ app.get('/api/extension/check-auth', (req, res) => {
 					if (now > exp) {
 						return res.status(403).json({success: false, message: '账号过期'});
 					}
+				}
+
+				// 检查指纹
+				if (dbUser.fingerprint) {
+					if (!fingerprint || dbUser.fingerprint !== fingerprint) {
+						return res.status(403).json({
+							success: false,
+							message: '设备环境发生变化，请重新登录',
+						});
+					}
+				} else {
+					// 如果库里没指纹，强制重新登录以绑定
+					return res.status(403).json({
+						success: false,
+						message: '安全升级，请重新登录以绑定设备',
+					});
 				}
 
 				const baseUrl = `${req.protocol}://${req.get('host')}`;
@@ -286,6 +330,7 @@ app.get('/api/admin/users', requireAdmin, (req, res) => {
 		return {
 			...u,
 			phone: displayPhone,
+			fingerprint: u.fingerprint || '', // 返回指纹
 		};
 	});
 	res.json({success: true, data: safeUsers});
@@ -327,7 +372,7 @@ app.post('/api/admin/users', requireAdmin, (req, res) => {
 // 6. 修改用户 (主要是过期时间)
 app.put('/api/admin/users/:id', requireAdmin, (req, res) => {
 	const {id} = req.params;
-	const {expirationTime} = req.body;
+	const {expirationTime, fingerprint} = req.body;
 
 	const users = readJson(USER_FILE);
 	const index = users.findIndex((u) => String(u.id) === String(id));
@@ -335,7 +380,13 @@ app.put('/api/admin/users/:id', requireAdmin, (req, res) => {
 	if (index === -1)
 		return res.status(404).json({success: false, message: '用户未找到'});
 
-	users[index].expirationTime = expirationTime;
+	if (expirationTime !== undefined) {
+		users[index].expirationTime = expirationTime;
+	}
+	// 允许管理员修改或清空指纹 (例如传空字符串重置)
+	if (fingerprint !== undefined) {
+		users[index].fingerprint = fingerprint;
+	}
 	users[index].updateTime = new Date().toISOString();
 
 	writeJson(USER_FILE, users);

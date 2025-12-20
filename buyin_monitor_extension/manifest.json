@@ -15,7 +15,7 @@
 	"content_scripts": [
 		{
 			"matches": ["*://buyin.jinritemai.com/*"],
-			"js": ["content.js"],
+			"js": ["fp.js", "content.js"],
 			"run_at": "document_end"
 		}
 	],

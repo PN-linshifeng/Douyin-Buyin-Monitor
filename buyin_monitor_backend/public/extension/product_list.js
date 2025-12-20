@@ -193,49 +193,113 @@
 		}
 	}
 
+	// 辅助函数：在容器中检查或创建按钮
+	function checkAndInject(container, name, isTable = false) {
+		// 2. 检查或创建按钮
+		let btn = container.querySelector('.douyin-monitor-list-btn');
+
+		// [新增逻辑] 检查按钮是否复用且名称不一致
+		if (btn && btn.getAttribute('name') !== name) {
+			btn.remove();
+			btn = null;
+		}
+
+		if (!btn) {
+			btn = document.createElement('button');
+			// 使用统一状态初始化
+			updateButtonState(btn, 'default');
+			btn.className = 'douyin-monitor-list-btn';
+
+			// 基础样式
+			let cssText = `
+                display: block;
+                background-color: #b9873d;
+                color: white;
+                border: none;
+                border-radius: 4px;
+                cursor: pointer;
+                font-size: 14px; 
+                z-index: 100;
+                position: relative; 
+            `;
+
+			// 根据视图类型调整样式
+			if (isTable) {
+				// 表格视图样式：稍微紧凑一点
+				cssText += `
+					margin: 5px 0;
+					padding: 6px 12px !important;
+					width: 100%;
+				`;
+			} else {
+				// 卡片(Wrapper)视图样式：原样
+				cssText += `
+					margin: 5px auto;
+					padding: 10px 10px !important;
+					width: 100%;
+					font-size: 16px;
+				`;
+			}
+
+			btn.style.cssText = cssText;
+
+			btn.onclick = (e) => {
+				e.stopPropagation(); // 阻止点击事件冒泡
+				handleGetSelectionData(btn);
+			};
+			container.appendChild(btn);
+		}
+
+		// 3. 更新按钮属性
+		btn.setAttribute('name', name);
+	}
+
 	// 向页面商品列表中注入"获取选品数据"按钮
 	function injectButtons() {
+		// 场景 A: 卡片视图 (原 .index_module__wrapper___dadac)
+		// 改用更稳健的属性选择器匹配
 		const wrappers = document.querySelectorAll(
-			'.index_module__wrapper___dadac'
+			'div[class*="index_module__wrapper"]'
 		);
 		wrappers.forEach((wrapper) => {
-			// 1. 获取商品名称
 			const timingEl =
-				wrapper.querySelector('.index_module__oneLine___dadac') ||
-				wrapper.querySelector('.index_module__title___dadac');
+				wrapper.querySelector('[class*="index_module__oneLine"]') ||
+				wrapper.querySelector('[class*="index_module__title"]');
 			if (!timingEl) return;
 			const name = timingEl.innerText || timingEl.textContent;
 
-			// 2. 检查或创建按钮
-			let btn = wrapper.querySelector('.douyin-monitor-list-btn');
-			if (!btn) {
-				btn = document.createElement('button');
-				btn.innerText = '获取选品数据';
-				btn.className = 'douyin-monitor-list-btn';
-				btn.style.cssText = `
-                    display: block;
-                    margin: 5px auto;
-                    padding:10px 10px !important;
-                    background-color: #b9873d;
-                    color: white;
-                    border: none;
-                    border-radius: 4px;
-                    cursor: pointer;
-                    font-size: 16px;
-                    z-index: 100;
-                    position: relative; 
-										width:100%;
-                `;
+			checkAndInject(wrapper, name, false);
+		});
 
-				btn.onclick = (e) => {
-					e.stopPropagation(); // 阻止点击事件冒泡(防止触发卡片点击)
-					handleGetSelectionData(btn);
-				};
-				wrapper.appendChild(btn);
+		// 场景 B: 表格视图 (.auxo-table-body)
+		// 每一行的第二个td
+		const tableRows = document.querySelectorAll('.auxo-table-body tr');
+		tableRows.forEach((tr) => {
+			const tds = tr.querySelectorAll('td');
+			if (tds.length < 2) return;
+
+			// 目标容器是第二个 td
+			const container = tds[1];
+
+			// 获取名称：尝试在行内查找之前的类名，或者尝试找图片alt
+			// 同样使用模糊匹配
+			let nameEl =
+				tr.querySelector('[class*="index_module__oneLine"]') ||
+				tr.querySelector('[class*="index_module__title"]');
+
+			// 备选：尝试从第二个td里的图片获取alt (如果是商品详情列)
+			if (!nameEl) {
+				const img = container.querySelector('img');
+				if (img && img.alt) {
+					nameEl = {innerText: img.alt}; // 模拟接口
+				}
 			}
 
-			// 3. 更新按钮属性 (即使按钮已存在也要更新，防止复用问题)
-			btn.setAttribute('name', name);
+			if (!nameEl) return;
+			const name = nameEl.innerText || nameEl.textContent;
+
+			// 注入到 container (第二个td)，并标记为表格模式
+			checkAndInject(container, name, true);
 		});
 	}
 
@@ -284,7 +348,7 @@
 			}
 
 			// 简单的防频控延时
-			await new Promise((r) => setTimeout(r, 1000));
+			await new Promise((r) => setTimeout(r, 1000 + Math.random() * 1000));
 		}
 
 		console.log('[批量分析] 完成!');
@@ -335,15 +399,14 @@
 	function init() {
 		// 尝试注入批量按钮
 		injectBatchButton();
-		// 初始检查
-		// 等待页面渲染
+		// 尝试即时注入一次
+		injectButtons();
 
 		// 1. 处理缓冲的数据 (Buffer)
 		if (window.__DM_BUFFER && window.__DM_BUFFER.length > 0) {
 			window.__DM_BUFFER.forEach((payload) => {
 				processList(payload);
 			});
-			setTimeout(injectButtons, 2000);
 		}
 
 		// 2. 监听来自 Injected Script 的新消息
@@ -355,6 +418,20 @@
 					processList(payload);
 				}
 			}
+		});
+
+		// 3. [New] MutationObserver for dynamic content
+		let timer = null;
+		const observer = new MutationObserver(() => {
+			if (timer) clearTimeout(timer);
+			timer = setTimeout(() => {
+				injectButtons();
+			}, 500); // Debounce 500ms
+		});
+
+		observer.observe(document.body, {
+			childList: true,
+			subtree: true,
 		});
 	}
 
