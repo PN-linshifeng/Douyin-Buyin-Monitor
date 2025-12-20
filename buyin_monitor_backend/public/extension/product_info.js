@@ -259,7 +259,7 @@
 		return sendInjectedRequest(fullUrl, bodyStr);
 	}
 
-	function calculateStats(data, days, productData, promotionId) {
+	function calculateStats(data, days, productPrice, promotionId) {
 		const promo = data?.model?.promotion_data?.calculate_data || {};
 		const content = data?.model?.content_data?.calculate_data || {};
 
@@ -323,8 +323,7 @@
 		const liveSalesDiff = safeDiv(liveSales, liveMatchOrderNum);
 
 		// 2. 规格计算 (y值)
-		let productPriceRaw =
-			productData?.data?.model?.product?.product_price?.price_label?.price || 0;
+		let productPriceRaw = productPrice || 0;
 		if (typeof productPriceRaw === 'string') {
 			productPriceRaw = parseFloat(productPriceRaw.replace(/[^\d.]/g, '')) || 0;
 		}
@@ -662,7 +661,8 @@
 	function showPopup(
 		results,
 		ranges,
-		productData,
+		productName,
+		productPrice,
 		promotionId,
 		decision_enter_from,
 		isError = false
@@ -673,9 +673,9 @@
 		const container = document.createElement('div');
 		container.id = 'douyin-monitor-popup';
 		container.style.position = 'fixed';
-		container.style.top = '50%';
+		container.style.top = '100px';
 		container.style.left = '50%';
-		container.style.transform = 'translate(-50%, -50%)';
+		container.style.transform = 'translate(-50%, 0%)';
 		container.style.zIndex = '10000';
 		container.style.display = 'block';
 		container.style.backgroundColor = '#1e1e1e';
@@ -689,12 +689,6 @@
 		container.style.overflowY = 'auto';
 
 		const title = document.createElement('h3');
-
-		let productName =
-			productData?.data?.model?.product?.product_base?.title || '❎错误信息';
-		if (isError) {
-			productName = '❎分析失败';
-		}
 
 		const link = document.createElement('a');
 		link.href = `https://buyin.jinritemai.com/dashboard/merch-picking-library/merch-promoting?commodity_id=${promotionId}&commodity_location=1&id=${promotionId}`;
@@ -807,7 +801,7 @@
 		results.forEach((item, index) => {
 			const data = item?.data || {};
 			const days = ranges[index];
-			const stats = calculateStats(data, days, productData, data.promotion_id);
+			const stats = calculateStats(data, days, productPrice, data.promotion_id);
 			const tableHtml = createTableHtml(stats);
 
 			// 获取7天的数据用于生成建议
@@ -874,7 +868,9 @@
 	async function analyzeAndShow(
 		promotionId,
 		decision_enter_from,
-		skipPopup = false
+		skipPopup = false,
+		productName,
+		productPrice
 	) {
 		if (!promotionId) {
 			alert('Promotion ID 不能为空');
@@ -885,23 +881,30 @@
 			// 1. 获取 ewid 并请求 pack_detail (商品信息)
 			let productData = {};
 
-			try {
-				const productRes = await fetchProductData(
-					promotionId,
-					decision_enter_from
-				);
-				productData = productRes;
-			} catch (e) {
-				console.error('获取商品数据失败:', e);
-			}
-
 			// 2. 请求 7/30 天数据
 			const ranges = skipPopup ? [7] : [7, 30];
 			// 我们可以传递空字符串作为 originalBodyStr，因为它不再用于逻辑
-			const promises = ranges.map((days) =>
-				fetchDataFordays(days, promotionId, decision_enter_from)
-			);
+			const promises = ranges.map(async (days) => {
+				await new Promise((r) => setTimeout(r, 100 + Math.random() * 1000));
+				return fetchDataFordays(days, promotionId, decision_enter_from);
+			});
 			const results = await Promise.all(promises);
+
+			if (!productName) {
+				productName = document.querySelector(
+					'[class*="index_module__title____"]'
+				).textContent;
+			}
+			if (!productPrice) {
+				const ele = [
+					...document.querySelector('[class*="index_module__dataContent"]')
+						.childNodes,
+				].filter((k) => k.nodeType === 3);
+				ele.shift();
+				productPrice = ele.map((k) => k.nodeValue).join('');
+				productPrice = Number(productPrice);
+			}
+			console.log(productName, productPrice);
 
 			// Check validity
 			const hasData =
@@ -911,7 +914,8 @@
 					showPopup(
 						results,
 						ranges,
-						productData,
+						productName,
+						productPrice,
 						promotionId,
 						decision_enter_from,
 						true
@@ -926,6 +930,8 @@
 				showPopup(
 					results,
 					ranges,
+					productName,
+					productPrice,
 					productData,
 					promotionId,
 					decision_enter_from
@@ -980,7 +986,7 @@
 		let isDrag = false;
 		btn.addEventListener('mousedown', () => (isDrag = false));
 		btn.addEventListener('mousemove', () => (isDrag = true));
-		btn.onclick = (e) => {
+		btn.onclick = async (e) => {
 			const localeUrl = new URL(location.href);
 			const promotionId =
 				localeUrl.searchParams.get('commodity_id') ||
@@ -989,8 +995,10 @@
 			const decision_enter_from = localeUrl.searchParams.get(
 				'decision_enter_from'
 			);
+			btn.innerText = '分析中...';
 			if (!isDrag && promotionId) {
-				analyzeAndShow(promotionId, decision_enter_from);
+				await analyzeAndShow(promotionId, decision_enter_from);
+				btn.innerText = '获取数据';
 			} else if (!promotionId) {
 				console.warn('URL中未找到 commodity_id');
 			}

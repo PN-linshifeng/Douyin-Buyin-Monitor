@@ -145,11 +145,18 @@
 				: undefined;
 			const skipPopup = isBatch;
 
+			const productName = promo.base_model?.product_info?.name;
+			const productPrice =
+				promo.base_model?.marketing_info?.price_desc?.price.origin;
+			console.log(productName, productPrice / 100);
+
 			// 3. 调用分析接口
 			const result = await window.ProductInfo.analyzeAndShow(
 				promotionId,
 				decisionFrom,
-				skipPopup
+				skipPopup,
+				productName,
+				productPrice / 100
 			);
 
 			// 4. 计算结果状态
@@ -159,6 +166,7 @@
 				result.productData,
 				promotionId
 			);
+			console.log('=============', stats7, stats7.overallStatus, promotionId);
 
 			// 5. 更新 UI
 			if (btn) {

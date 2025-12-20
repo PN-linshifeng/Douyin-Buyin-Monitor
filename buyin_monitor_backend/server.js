@@ -109,6 +109,8 @@ app.post('/api/extension/login', (req, res) => {
 		}
 	}
 
+	let updated = false;
+
 	// 检查/绑定 指纹
 	if (!foundUser.fingerprint) {
 		// 第一次登录，绑定指纹
