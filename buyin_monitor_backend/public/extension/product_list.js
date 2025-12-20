@@ -354,9 +354,7 @@
 		console.log('[批量分析] 完成!');
 		console.log(`成功: ${successCount}, 失败: ${failCount}`);
 		console.log('结果 Map:', batchResultsMap);
-		alert(
-			`批量分析完成\n成功: ${successCount}\n失败: ${failCount}\n结果已打印到控制台 (batchResultsMap)`
-		);
+		alert(`批量分析完成\n成功: ${successCount}\n失败: ${failCount}`);
 
 		btn.innerText = originalText;
 		btn.disabled = false;

@@ -122,11 +122,11 @@ async function processFile(filePath, isExtension = false) {
 		console.log(`Processing: ${path.relative(DIST_DIR, filePath)}`);
 		let content = await fs.readFile(filePath, 'utf8');
 
-		// 1. Remove console.debug statements
-		// Regex to match console.debug(...) including multi-line
-		// Matches: console.debug ( ... ) ;?
+		// 1. Remove all console statements (log, debug, info, warn, error, etc.)
+		// Regex to match console.xxx(...) including multi-line
+		// Matches: console.method ( ... ) ;?
 		content = content.replace(
-			/console\.debug\s*\((?:[^)(]+|\((?:[^)(]+|\([^)(]*\))*\))*\)\s*;?/g,
+			/console\.\w+\s*\((?:[^)(]+|\((?:[^)(]+|\([^)(]*\))*\))*\)\s*;?/g,
 			''
 		);
 
