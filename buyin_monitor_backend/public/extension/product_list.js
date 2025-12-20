@@ -66,6 +66,113 @@
 		});
 	}
 
+	/**
+	 * 统一更新按钮状态
+	 * @param {HTMLElement} btn 按钮元素
+	 * @param {string} type 状态类型: 'analyzing' | 'good' | 'bad' | 'normal' | 'error' | 'default'
+	 */
+	function updateButtonState(btn, type) {
+		if (!btn) return;
+
+		switch (type) {
+			case 'analyzing':
+				btn.innerText = '分析中...';
+				btn.disabled = true;
+				break;
+			case 'good':
+				btn.style.backgroundColor = '#25c260';
+				btn.innerText = '推荐';
+				btn.disabled = false;
+				break;
+			case 'bad':
+				btn.style.backgroundColor = '#ff4d4f';
+				btn.innerText = '不推荐';
+				btn.disabled = false;
+				break;
+			case 'normal':
+				btn.innerText = '一般';
+				// 恢复默认颜色或保持现有逻辑(原逻辑中一般不改背景色，但如果之前被改为红绿，这里应该恢复吗？
+				// 原逻辑 else 分支并未重置背景色。为显式起见，建议保持原样或设置为默认土豪金)
+				// 既然是状态更新，最好显式设回默认，避免状态残留
+				btn.style.backgroundColor = '#b9873d';
+				btn.disabled = false;
+				break;
+			case 'error':
+				btn.innerText = '❎分析失败';
+				btn.style.backgroundColor = '#999';
+				btn.disabled = false;
+				break;
+			case 'default':
+			default:
+				btn.innerText = '获取选品数据';
+				btn.style.backgroundColor = '#b9873d';
+				btn.disabled = false;
+				break;
+		}
+	}
+
+	/**
+	 * 核心商品分析逻辑
+	 * @param {Object} promo 商品信息
+	 * @param {HTMLElement|null} btn 对应的按钮元素 (用于更新UI)
+	 * @param {boolean} isBatch 是否为批量模式
+	 * @returns {Promise<{success: boolean, id: string, data: any}>}
+	 */
+	async function runProductAnalysis(promo, btn, isBatch = false) {
+		const promotionId = promo?.promotion_id;
+		if (!promotionId) {
+			return {success: false, id: null, msg: 'No promotion ID'};
+		}
+
+		if (!window.ProductInfo || !window.ProductInfo.analyzeAndShow) {
+			console.error('ProductInfo 模块未加载');
+			if (btn) updateButtonState(btn, 'error');
+			return {success: false, id: promotionId, msg: 'Module missing'};
+		}
+
+		// 1. 设置中间状态 (批量模式通常不设置单个按钮的分析中状态，以免闪烁太快/或者没必要)
+		// 单个点击时必须设置
+		if (!isBatch && btn) {
+			updateButtonState(btn, 'analyzing');
+		}
+
+		try {
+			// 2. 准备参数
+			// 批量模式下: decision_enter_from 指定为 square...recommend_main, skipPopup = true
+			// 单个模式下: default, skipPopup = false (默认)
+			const decisionFrom = isBatch
+				? 'pc.selection_square.recommend_main'
+				: undefined;
+			const skipPopup = isBatch;
+
+			// 3. 调用分析接口
+			const result = await window.ProductInfo.analyzeAndShow(
+				promotionId,
+				decisionFrom,
+				skipPopup
+			);
+
+			// 4. 计算结果状态
+			const stats7 = window.ProductInfo.calculateStats(
+				result.results[0].data,
+				7,
+				result.productData,
+				promotionId
+			);
+
+			// 5. 更新 UI
+			if (btn) {
+				updateButtonState(btn, stats7.overallStatus);
+			}
+
+			return {success: true, id: promotionId, data: result};
+		} catch (e) {
+			console.error(`[分析失败] ID: ${promotionId}`, e);
+			if (btn) updateButtonState(btn, 'error');
+			return {success: false, id: promotionId, error: e};
+		}
+	}
+
 	// 处理"获取选品数据"按钮点击事件
 	async function handleGetSelectionData(btn) {
 		const name = btn.getAttribute('name');
@@ -79,47 +186,7 @@
 		const promo = findPromotionByName(name);
 		if (promo) {
 			console.log('[商品列表] 找到匹配数据:', promo);
-			const promotionId = promo.promotion_id; // 从对象中获取 promotion_id
-
-			if (window.ProductInfo && window.ProductInfo.analyzeAndShow) {
-				// UI Loading State
-				const originalText = btn.innerText;
-				btn.innerText = '分析中...';
-				btn.disabled = true;
-
-				try {
-					const result = await window.ProductInfo.analyzeAndShow(promotionId);
-
-					// Calculate stats to determine status (Good/Bad/Normal)
-					const stats7 = window.ProductInfo.calculateStats(
-						result.results[0].data,
-						7,
-						result.productData,
-						promotionId
-					);
-
-					// Update Button Visuals based on status
-					if (stats7.overallStatus === 'good') {
-						btn.style.backgroundColor = '#25c260';
-						btn.innerText = '推荐';
-					} else if (stats7.overallStatus === 'bad') {
-						btn.style.backgroundColor = '#ff4d4f';
-						btn.innerText = '不推荐';
-					} else {
-						// Normal
-						btn.innerText = '一般';
-						// Background stays default (#b9873d)
-					}
-				} catch (e) {
-					console.error('[单个分析] 失败', e);
-					btn.innerText = '❎分析失败';
-					btn.style.backgroundColor = '#999';
-				} finally {
-					btn.disabled = false;
-				}
-			} else {
-				alert('ProductInfo 模块未加载');
-			}
+			await runProductAnalysis(promo, btn, false);
 		} else {
 			console.warn('[商品列表] 未找到匹配商品:', name);
 			alert('未在缓存数据中找到该商品，请尝试滚动加载或刷新页面');
@@ -182,7 +249,6 @@
 		const originalText = btn.innerText;
 		btn.innerText = '分析中...';
 		btn.disabled = true;
-		// batchResultsMap.clear();
 
 		console.log(`[批量分析] 开始处理 ${savedPromotions.length} 个商品...`);
 
@@ -196,81 +262,25 @@
 			// 检查 Map 中是否已存在（去重）
 			if (batchResultsMap.has(promotionId)) continue;
 
-			// 决策来源 (模拟)
-			const decision_enter_from = 'pc.selection_square.recommend_main';
+			// 查找对应的按钮 (如果存在)
+			let targetBtn = null;
+			const promoName = promo?.base_model?.product_info?.name;
+			if (promoName) {
+				const allBtns = document.querySelectorAll('.douyin-monitor-list-btn');
+				targetBtn = Array.from(allBtns).find(
+					(b) => b.getAttribute('name') === promoName
+				);
+			}
 
-			try {
-				if (window.ProductInfo && window.ProductInfo.analyzeAndShow) {
-					// skipPopup = true
-					const result = await window.ProductInfo.analyzeAndShow(
-						promotionId,
-						decision_enter_from,
-						true
-					);
+			// 执行分析
+			const resultObj = await runProductAnalysis(promo, targetBtn, true);
 
-					batchResultsMap.set(promotionId, result);
-					successCount++;
-
-					// Calculate stats to get Good/Bad status (using 7 days data)
-					const stats7 = window.ProductInfo.calculateStats(
-						result.results[0].data,
-						7,
-						result.productData,
-						promotionId
-					);
-					const statusLabel =
-						stats7.overallStatus === 'good'
-							? '[Good]'
-							: stats7.overallStatus === 'bad'
-							? '[Bad]'
-							: '[Normal]';
-
-					console.log(
-						`[批量分析] 成功 ${statusLabel}: ${promo?.base_model?.product_info?.name}`
-					);
-
-					// Visual Feedback: Update Button Color
-					const promoName = promo?.base_model?.product_info?.name;
-					if (promoName) {
-						const allBtns = document.querySelectorAll(
-							'.douyin-monitor-list-btn'
-						);
-						const targetBtn = Array.from(allBtns).find(
-							(b) => b.getAttribute('name') === promoName
-						);
-						if (targetBtn) {
-							// "If good -> Green, bad -> Red, otherwise
-							if (stats7.overallStatus === 'good') {
-								targetBtn.style.backgroundColor = '#25c260';
-								targetBtn.innerText = '推荐';
-							} else if (stats7.overallStatus === 'bad') {
-								targetBtn.style.backgroundColor = '#ff4d4f';
-								targetBtn.innerText = '不推荐';
-							} else {
-								targetBtn.innerText = '一般';
-							}
-						}
-					}
-				} else {
-					console.error('ProductInfo 模块未加载');
-					failCount++;
-				}
-			} catch (e) {
-				console.error(`[批量分析] 失败 ID: ${promotionId}`, e);
+			if (resultObj.success) {
+				batchResultsMap.set(promotionId, resultObj.data);
+				successCount++;
+				console.log(`[批量分析] 成功: ${promoName}`);
+			} else {
 				failCount++;
-
-				// Visual Feedback: Update Button for Failure
-				const promoName = promo?.base_model?.product_info?.name;
-				if (promoName) {
-					const allBtns = document.querySelectorAll('.douyin-monitor-list-btn');
-					const targetBtn = Array.from(allBtns).find(
-						(b) => b.getAttribute('name') === promoName
-					);
-					if (targetBtn) {
-						targetBtn.innerText = '❎分析失败';
-						targetBtn.style.backgroundColor = '#999'; // Grey for error?
-					}
-				}
 			}
 
 			// 简单的防频控延时
