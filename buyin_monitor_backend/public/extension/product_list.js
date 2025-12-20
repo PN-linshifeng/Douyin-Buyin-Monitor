@@ -130,9 +130,9 @@
 			return {success: false, id: promotionId, msg: 'Module missing'};
 		}
 
-		// 1. 设置中间状态 (批量模式通常不设置单个按钮的分析中状态，以免闪烁太快/或者没必要)
-		// 单个点击时必须设置
-		if (!isBatch && btn) {
+		// 1. 设置中间状态
+		// 无论单次还是批量，只要有按钮，都标记为分析中
+		if (btn) {
 			updateButtonState(btn, 'analyzing');
 		}
 
