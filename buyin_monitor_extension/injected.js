@@ -10,7 +10,7 @@
 
 	// 需要拦截的目标 URL 片段
 	const TARGET_URLS = [
-		'/pc/selection/decision/pack_detail', // 商品包详情接口
+		// '/pc/selection/decision/pack_detail', // 商品包详情接口
 		'/pc/selection/common/material_list', // 选品库列表接口
 	];
 
@@ -45,7 +45,7 @@
 			payload.url &&
 			payload.url.indexOf('/pc/selection/common/material_list') !== -1
 		) {
-			console.log('[Douyin Monitor Injected] 正在缓冲选品列表数据');
+			// console.log('[Douyin Monitor Injected] 正在缓冲选品列表数据');
 			window.__DM_BUFFER.push(payload);
 			// 保持缓冲区大小合理，避免内存溢出 (最多保留最近 20 条)
 			if (window.__DM_BUFFER.length > 20) window.__DM_BUFFER.shift();
@@ -68,10 +68,10 @@
 		// 只处理特定的请求发起指令
 		if (event.data && event.data.type === 'DOUYIN_MONITOR_FETCH') {
 			const {requestId, url, body} = event.data.payload;
-			console.log(
-				'[Douyin Monitor Injected] 收到主动请求指令 (使用 XHR 发起):',
-				url
-			);
+			// console.log(
+			// 	'[Douyin Monitor Injected] 收到主动请求指令 (使用 XHR 发起):',
+			// 	url
+			// );
 
 			try {
 				const xhr = new window.XMLHttpRequest();

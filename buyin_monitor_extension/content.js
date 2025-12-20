@@ -4,7 +4,8 @@
 		'color: #4eca06; font-weight: bold; font-size: 14px;'
 	);
 
-	const BACKEND_URL = 'http://127.0.0.1:3308';
+	// const BACKEND_URL = 'http://54.151.167.242:3308';
+	const BACKEND_URL = 'http:127.0.0.1:3308';
 
 	// 辅助函数: 通过 Background 代理请求，绕过 Mixed Content / CSP 限制
 	function sendProxyRequest(url, method = 'GET', headers = {}, body = null) {
