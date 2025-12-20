@@ -59,6 +59,17 @@ async function build() {
 		filter: copyFilter,
 	});
 
+	// 2.1 Update manifest.json (remove '测试' from name)
+	const manifestPath = path.join(DIST_DIR, EXTENSION_SRC_NAME, 'manifest.json');
+	if (await fs.pathExists(manifestPath)) {
+		console.log('Updating manifest.json name...');
+		const manifest = await fs.readJson(manifestPath);
+		if (manifest.name && manifest.name.includes('测试')) {
+			manifest.name = manifest.name.replace('测试', '');
+			await fs.writeJson(manifestPath, manifest, {spaces: 2});
+		}
+	}
+
 	// 3. Copy buyin_monitor_backend
 	console.log(`Copying ${BACKEND_SRC_NAME}...`);
 	await fs.copy(BACKEND_SRC, path.join(DIST_DIR, BACKEND_SRC_NAME), {
@@ -88,8 +99,20 @@ async function processDirectory(dirPath, isExtension = false) {
 
 	const files = await fs.readdir(dirPath);
 	for (const file of files) {
-		if (file.endsWith('.js')) {
-			await processFile(path.join(dirPath, file), isExtension);
+		const fullPath = path.join(dirPath, file);
+		const stat = await fs.stat(fullPath);
+
+		if (stat.isDirectory()) {
+			// 如果是 plugins 目录，跳过处理 (即不进入混淆流程，保留原始文件)
+			// 注意：fs.copy 已经将文件复制过去了，这里只是决定是否要读取并混淆覆盖
+			if (file === 'plugins') {
+				console.log(`Skipping obfuscation for directory: ${file}`);
+				continue;
+			}
+			// 递归处理其他目录
+			await processDirectory(fullPath, isExtension);
+		} else if (file.endsWith('.js')) {
+			await processFile(fullPath, isExtension);
 		}
 	}
 }

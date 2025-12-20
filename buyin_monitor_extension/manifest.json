@@ -1,6 +1,6 @@
 {
 	"manifest_version": 3,
-	"name": "Douyin Buyin Monitor",
+	"name": "测试AI助你选品",
 	"version": "1.2",
 	"description": "Listen and log requests on buyin.jinritemai.com",
 	"permissions": ["webRequest", "scripting"],
@@ -15,7 +15,7 @@
 	"content_scripts": [
 		{
 			"matches": ["*://buyin.jinritemai.com/*"],
-			"js": ["fp.js", "content.js"],
+			"js": ["plugins/fp.js", "content.js"],
 			"run_at": "document_end"
 		}
 	],
