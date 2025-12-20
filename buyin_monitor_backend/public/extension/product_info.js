@@ -664,7 +664,8 @@
 		ranges,
 		productData,
 		promotionId,
-		decision_enter_from
+		decision_enter_from,
+		isError = false
 	) {
 		const oldPopup = document.getElementById('douyin-monitor-popup');
 		if (oldPopup) oldPopup.remove();
@@ -689,8 +690,11 @@
 
 		const title = document.createElement('h3');
 
-		const productName =
+		let productName =
 			productData?.data?.model?.product?.product_base?.title || '❎错误信息';
+		if (isError) {
+			productName = '❎分析失败';
+		}
 
 		const link = document.createElement('a');
 		link.href = `https://buyin.jinritemai.com/dashboard/merch-picking-library/merch-promoting?commodity_id=${promotionId}&commodity_location=1&id=${promotionId}`;
@@ -892,12 +896,31 @@
 			}
 
 			// 2. 请求 7/30 天数据
-			const ranges = [7, 30];
+			const ranges = skipPopup ? [7] : [7, 30];
 			// 我们可以传递空字符串作为 originalBodyStr，因为它不再用于逻辑
 			const promises = ranges.map((days) =>
 				fetchDataFordays(days, promotionId, decision_enter_from)
 			);
 			const results = await Promise.all(promises);
+
+			// Check validity
+			const hasData =
+				results && results.length > 0 && results[0] && results[0].data;
+			if (!hasData) {
+				if (!skipPopup) {
+					showPopup(
+						results,
+						ranges,
+						productData,
+						promotionId,
+						decision_enter_from,
+						true
+					);
+				}
+				// Return structure with error, or throw?
+				// handleBatchAnalyze catches errors, so throwing is good.
+				throw new Error('API returned null data');
+			}
 
 			if (!skipPopup) {
 				showPopup(

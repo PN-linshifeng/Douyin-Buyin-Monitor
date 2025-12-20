@@ -67,7 +67,7 @@
 	}
 
 	// 处理"获取选品数据"按钮点击事件
-	function handleGetSelectionData(btn) {
+	async function handleGetSelectionData(btn) {
 		const name = btn.getAttribute('name');
 		if (!name) {
 			alert('无法获取商品名称');
@@ -82,7 +82,41 @@
 			const promotionId = promo.promotion_id; // 从对象中获取 promotion_id
 
 			if (window.ProductInfo && window.ProductInfo.analyzeAndShow) {
-				window.ProductInfo.analyzeAndShow(promotionId);
+				// UI Loading State
+				const originalText = btn.innerText;
+				btn.innerText = '分析中...';
+				btn.disabled = true;
+
+				try {
+					const result = await window.ProductInfo.analyzeAndShow(promotionId);
+
+					// Calculate stats to determine status (Good/Bad/Normal)
+					const stats7 = window.ProductInfo.calculateStats(
+						result.results[0].data,
+						7,
+						result.productData,
+						promotionId
+					);
+
+					// Update Button Visuals based on status
+					if (stats7.overallStatus === 'good') {
+						btn.style.backgroundColor = '#25c260';
+						btn.innerText = '推荐';
+					} else if (stats7.overallStatus === 'bad') {
+						btn.style.backgroundColor = '#ff4d4f';
+						btn.innerText = '不推荐';
+					} else {
+						// Normal
+						btn.innerText = '一般';
+						// Background stays default (#b9873d)
+					}
+				} catch (e) {
+					console.error('[单个分析] 失败', e);
+					btn.innerText = '❎分析失败';
+					btn.style.backgroundColor = '#999';
+				} finally {
+					btn.disabled = false;
+				}
 			} else {
 				alert('ProductInfo 模块未加载');
 			}
@@ -148,7 +182,7 @@
 		const originalText = btn.innerText;
 		btn.innerText = '分析中...';
 		btn.disabled = true;
-		batchResultsMap.clear();
+		// batchResultsMap.clear();
 
 		console.log(`[批量分析] 开始处理 ${savedPromotions.length} 个商品...`);
 
@@ -173,6 +207,7 @@
 						decision_enter_from,
 						true
 					);
+
 					batchResultsMap.set(promotionId, result);
 					successCount++;
 
@@ -223,10 +258,23 @@
 			} catch (e) {
 				console.error(`[批量分析] 失败 ID: ${promotionId}`, e);
 				failCount++;
+
+				// Visual Feedback: Update Button for Failure
+				const promoName = promo?.base_model?.product_info?.name;
+				if (promoName) {
+					const allBtns = document.querySelectorAll('.douyin-monitor-list-btn');
+					const targetBtn = Array.from(allBtns).find(
+						(b) => b.getAttribute('name') === promoName
+					);
+					if (targetBtn) {
+						targetBtn.innerText = '❎分析失败';
+						targetBtn.style.backgroundColor = '#999'; // Grey for error?
+					}
+				}
 			}
 
 			// 简单的防频控延时
-			await new Promise((r) => setTimeout(r, 300));
+			await new Promise((r) => setTimeout(r, 1000));
 		}
 
 		console.log('[批量分析] 完成!');
