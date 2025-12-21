@@ -5,6 +5,7 @@ const cors = require('cors');
 const fs = require('fs');
 const path = require('path');
 const crypto = require('crypto-js');
+const statsRouter = require('./routes/stats');
 
 const app = express();
 const PORT = 3308;
@@ -33,6 +34,9 @@ app.use(
 	})
 );
 app.use(express.static(path.join(__dirname, 'public')));
+
+// 注册统计路由 (API: /api/extension/calculate_stats)
+app.use('/api/extension', statsRouter);
 
 // 数据文件路径
 const USER_FILE = path.join(__dirname, 'user.json');

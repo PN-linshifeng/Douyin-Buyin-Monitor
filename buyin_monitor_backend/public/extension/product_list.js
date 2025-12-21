@@ -165,12 +165,19 @@
 			);
 
 			// 4. 计算结果状态
-			const stats7 = window.ProductInfo.calculateStats(
-				result.results[0].data,
-				7,
-				result.productData,
-				promotionId
-			);
+			// const stats7 = window.ProductInfo.calculateStats(
+			// 	result.results[0].data,
+			// 	7,
+			// 	result.productData,
+			// 	promotionId
+			// );
+			// 改为直接获取后端计算的结果
+			const stats7 = result.results[0].stats;
+
+			if (!stats7) {
+				console.error('[ProductList] 7天数据统计缺失', result);
+				throw new Error('Stats missing');
+			}
 			console.log('=============', stats7, stats7.overallStatus, promotionId);
 
 			// 5. 更新 UI

@@ -5,7 +5,7 @@
 	);
 
 	// const BACKEND_URL = 'http://54.151.167.242:3308';
-	const BACKEND_URL = 'http:127.0.0.1:3308';
+	const BACKEND_URL = 'http://127.0.0.1:3308';
 
 	// 辅助函数: 通过 Background 代理请求，绕过 Mixed Content / CSP 限制
 	function sendProxyRequest(url, method = 'GET', headers = {}, body = null) {
@@ -28,6 +28,55 @@
 			);
 		});
 	}
+
+	// 监听来自 Pages 的消息 (product_info.js)
+	window.addEventListener('message', async function (event) {
+		if (event.source !== window) return;
+
+		if (event.data.type === 'DOUYIN_MONITOR_CALCULATE_STATS') {
+			const {requestId, payload} = event.data;
+			try {
+				const token = localStorage.getItem('dm_token');
+				const fingerprint = await getFingerprint();
+
+				const response = await sendProxyRequest(
+					`${BACKEND_URL}/api/extension/calculate_stats`,
+					'POST',
+					{
+						'Content-Type': 'application/json',
+						Authorization: `Bearer ${token}`,
+						'x-device-fingerprint': fingerprint,
+					},
+					payload
+				);
+
+				const apiResult = response.data || {};
+				const isSuccess = response.success && apiResult.success;
+
+				window.postMessage(
+					{
+						type: 'DOUYIN_MONITOR_FETCH_RESULT',
+						requestId: requestId,
+						success: isSuccess,
+						data: apiResult.data,
+						error: apiResult.message || response.error || '计算请求失败',
+					},
+					'*'
+				);
+			} catch (e) {
+				console.error('Calculate stats proxy error:', e);
+				window.postMessage(
+					{
+						type: 'DOUYIN_MONITOR_FETCH_RESULT',
+						requestId,
+						success: false,
+						error: e.message,
+					},
+					'*'
+				);
+			}
+		}
+	});
 
 	// ===========================
 	// 0. 注入拦截脚本 (Main World)
