@@ -79,6 +79,11 @@
 				btn.innerText = '分析中...';
 				btn.disabled = true;
 				break;
+			case 'waiting':
+				btn.innerText = '等待分析';
+				btn.style.backgroundColor = '#b9873d';
+				btn.disabled = true;
+				break;
 			case 'good':
 				btn.style.backgroundColor = '#25c260';
 				btn.innerText = '推荐';
@@ -324,6 +329,25 @@
 
 		console.log(`[批量分析] 开始处理 ${savedPromotions.length} 个商品...`);
 
+		// 0. 预处理：构建按钮映射并设置等待状态
+		const allBtns = document.querySelectorAll('.douyin-monitor-list-btn');
+		const btnMap = new Map();
+		allBtns.forEach((b) => {
+			const name = b.getAttribute('name');
+			if (name) btnMap.set(name, b);
+		});
+
+		// 标记所有待分析项为等待
+		for (const promo of savedPromotions) {
+			const pid = promo.promotion_id;
+			if (!pid || batchResultsMap.has(pid)) continue;
+
+			const pName = promo?.base_model?.product_info?.name;
+			if (pName && btnMap.has(pName)) {
+				updateButtonState(btnMap.get(pName), 'waiting');
+			}
+		}
+
 		let successCount = 0;
 		let failCount = 0;
 
@@ -338,10 +362,7 @@
 			let targetBtn = null;
 			const promoName = promo?.base_model?.product_info?.name;
 			if (promoName) {
-				const allBtns = document.querySelectorAll('.douyin-monitor-list-btn');
-				targetBtn = Array.from(allBtns).find(
-					(b) => b.getAttribute('name') === promoName
-				);
+				targetBtn = btnMap.get(promoName);
 			}
 
 			// 执行分析

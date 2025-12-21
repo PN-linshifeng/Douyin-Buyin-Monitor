@@ -885,7 +885,7 @@
 			const ranges = skipPopup ? [7] : [7, 30];
 			// 我们可以传递空字符串作为 originalBodyStr，因为它不再用于逻辑
 			const promises = ranges.map(async (days) => {
-				await new Promise((r) => setTimeout(r, 100 + Math.random() * 1000));
+				await new Promise((r) => setTimeout(r, 100 + Math.random() * 600));
 				return fetchDataFordays(days, promotionId, decision_enter_from);
 			});
 			const results = await Promise.all(promises);
