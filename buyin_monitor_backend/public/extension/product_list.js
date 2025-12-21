@@ -53,17 +53,10 @@
 	// UI & Interaction
 	// ===========================
 
-	// 根据商品名称查找缓存的推广信息
-	function findPromotionByName(name) {
-		if (!name) return null;
-		// 移除所有空格以进行从模糊匹配
-		const cleanName = name.replace(/\s+/g, '');
-		return savedPromotions.find((p) => {
-			const pName = p?.base_model?.product_info?.name;
-			if (!pName) return false;
-			const cleanPName = pName.replace(/\s+/g, '');
-			return cleanPName === cleanName;
-		});
+	// 根据商品ID查找缓存的推广信息
+	function findPromotionById(pid) {
+		if (!pid) return null;
+		return savedPromotions.find((p) => p.promotion_id === pid);
 	}
 
 	/**
@@ -195,31 +188,31 @@
 
 	// 处理"获取选品数据"按钮点击事件
 	async function handleGetSelectionData(btn) {
-		const name = btn.getAttribute('name');
-		if (!name) {
-			alert('无法获取商品名称');
+		const pid = btn.getAttribute('data-pid');
+		if (!pid) {
+			alert('无法获取商品ID信息');
 			return;
 		}
 
-		console.log('[商品列表] 点击获取商品:', name);
+		console.log('[商品列表] 点击获取商品ID:', pid);
 
-		const promo = findPromotionByName(name);
+		const promo = findPromotionById(pid);
 		if (promo) {
 			console.log('[商品列表] 找到匹配数据:', promo);
 			await runProductAnalysis(promo, btn, false);
 		} else {
-			console.warn('[商品列表] 未找到匹配商品:', name);
+			console.warn('[商品列表] 未找到匹配商品:', pid);
 			alert('未在缓存数据中找到该商品，请尝试滚动加载或刷新页面');
 		}
 	}
 
 	// 辅助函数：在容器中检查或创建按钮
-	function checkAndInject(container, name, isTable = false) {
+	function checkAndInject(container, pid, isTable = false) {
 		// 2. 检查或创建按钮
 		let btn = container.querySelector('.douyin-monitor-list-btn');
 
-		// [新增逻辑] 检查按钮是否复用且名称不一致
-		if (btn && btn.getAttribute('name') !== name) {
+		// [修改逻辑] 检查按钮是否复用且ID不一致
+		if (btn && btn.getAttribute('data-pid') !== pid) {
 			btn.remove();
 			btn = null;
 		}
@@ -271,55 +264,57 @@
 		}
 
 		// 3. 更新按钮属性
-		btn.setAttribute('name', name);
+		btn.setAttribute('data-pid', pid);
 	}
 
 	// 向页面商品列表中注入"获取选品数据"按钮
 	function injectButtons() {
-		// 场景 A: 卡片视图 (原 .index_module__wrapper___dadac)
-		// 改用更稳健的属性选择器匹配
+		// 收集页面上的列表项
+		let items = [];
+
+		// 场景 A: 卡片视图
 		const wrappers = document.querySelectorAll(
 			'div[class*="index_module__wrapper"]'
 		);
-		wrappers.forEach((wrapper) => {
-			const timingEl =
-				wrapper.querySelector('[class*="index_module__oneLine"]') ||
-				wrapper.querySelector('[class*="index_module__title"]');
-			if (!timingEl) return;
-			const name = timingEl.innerText || timingEl.textContent;
+		if (wrappers.length > 0) {
+			wrappers.forEach((w) => items.push({el: w, type: 'card'}));
+		} else {
+			// 场景 B: 表格视图
+			const tableRows = [...document.querySelectorAll('.auxo-table-body tr')];
+			tableRows.forEach((tr, index) => {
+				// 简单的行过滤，确保是数据行
+				if (index !== 0) {
+					const tds = tr.querySelectorAll('td');
+					if (tds.length >= 2) {
+						items.push({el: tr, type: 'table'});
+					}
+				}
+			});
+		}
 
-			checkAndInject(wrapper, name, false);
-		});
+		// 根据下标匹配数据
+		items.forEach((item, index) => {
+			if (index >= savedPromotions.length) return;
 
-		// 场景 B: 表格视图 (.auxo-table-body)
-		// 每一行的第二个td
-		const tableRows = document.querySelectorAll('.auxo-table-body tr');
-		tableRows.forEach((tr) => {
-			const tds = tr.querySelectorAll('td');
-			if (tds.length < 2) return;
+			const promo = savedPromotions[index];
+			const pid = promo.promotion_id;
+			if (!pid) return;
 
-			// 目标容器是第二个 td
-			const container = tds[1];
-
-			// 获取名称：尝试在行内查找之前的类名，或者尝试找图片alt
-			// 同样使用模糊匹配
-			let nameEl =
-				tr.querySelector('[class*="index_module__oneLine"]') ||
-				tr.querySelector('[class*="index_module__title"]');
-
-			// 备选：尝试从第二个td里的图片获取alt (如果是商品详情列)
-			if (!nameEl) {
-				const img = container.querySelector('img');
-				if (img && img.alt) {
-					nameEl = {innerText: img.alt}; // 模拟接口
+			// 确定注入位置
+			let container = null;
+			if (item.type === 'card') {
+				container = item.el;
+			} else {
+				// 表格模式注入到第二个 td
+				const tds = item.el.querySelectorAll('td');
+				if (tds.length >= 2) {
+					container = tds[1];
 				}
 			}
 
-			if (!nameEl) return;
-			const name = nameEl.innerText || nameEl.textContent;
-
-			// 注入到 container (第二个td)，并标记为表格模式
-			checkAndInject(container, name, true);
+			if (container) {
+				checkAndInject(container, pid, item.type === 'table');
+			}
 		});
 	}
 
@@ -340,8 +335,8 @@
 		const allBtns = document.querySelectorAll('.douyin-monitor-list-btn');
 		const btnMap = new Map();
 		allBtns.forEach((b) => {
-			const name = b.getAttribute('name');
-			if (name) btnMap.set(name, b);
+			const pid = b.getAttribute('data-pid');
+			if (pid) btnMap.set(pid, b);
 		});
 
 		// 标记所有待分析项为等待
@@ -349,9 +344,8 @@
 			const pid = promo.promotion_id;
 			if (!pid || batchResultsMap.has(pid)) continue;
 
-			const pName = promo?.base_model?.product_info?.name;
-			if (pName && btnMap.has(pName)) {
-				updateButtonState(btnMap.get(pName), 'waiting');
+			if (btnMap.has(pid)) {
+				updateButtonState(btnMap.get(pid), 'waiting');
 			}
 		}
 
@@ -366,11 +360,8 @@
 			if (batchResultsMap.has(promotionId)) continue;
 
 			// 查找对应的按钮 (如果存在)
-			let targetBtn = null;
-			const promoName = promo?.base_model?.product_info?.name;
-			if (promoName) {
-				targetBtn = btnMap.get(promoName);
-			}
+			let targetBtn = btnMap.get(promotionId);
+			const promoName = promo?.base_model?.product_info?.name || promotionId;
 
 			// 执行分析
 			const resultObj = await runProductAnalysis(promo, targetBtn, true);

@@ -2,10 +2,12 @@ const express = require('express');
 const bodyParser = require('body-parser');
 const session = require('express-session');
 const cors = require('cors');
-const fs = require('fs');
 const path = require('path');
 const crypto = require('crypto-js');
 const statsRouter = require('./routes/stats');
+const initDB = require('./init_db');
+const User = require('./models/User');
+const Admin = require('./models/Admin');
 
 const app = express();
 const PORT = 3308;
@@ -15,13 +17,10 @@ const SECRET_KEY = 'your_secret_key_here'; // 在实际生产中应放在环境�
 app.use(
 	cors({
 		origin: function (origin, callback) {
-			// 允许所有 origin，或者只允许特定的
-			// 为了开发方便，且支持 credentials，我们反射请求的 origin
-			// 如果 origin 不存在 (如服务端请求)，也允许
 			callback(null, true);
 		},
 		credentials: true,
-		allowedHeaders: ['Content-Type', 'Authorization'],
+		allowedHeaders: ['Content-Type', 'Authorization', 'x-device-fingerprint'],
 	})
 );
 app.use(bodyParser.json());
@@ -38,25 +37,6 @@ app.use(express.static(path.join(__dirname, 'public')));
 // 注册统计路由 (API: /api/extension/calculate_stats)
 app.use('/api/extension', statsRouter);
 
-// 数据文件路径
-const USER_FILE = path.join(__dirname, 'user.json');
-const ADMIN_FILE = path.join(__dirname, 'admin.json');
-
-// Helper: 读取/写入 JSON
-function readJson(file) {
-	if (!fs.existsSync(file)) return [];
-	try {
-		const data = fs.readFileSync(file, 'utf8');
-		return JSON.parse(data);
-	} catch (e) {
-		return [];
-	}
-}
-
-function writeJson(file, data) {
-	fs.writeFileSync(file, JSON.stringify(data, null, 2));
-}
-
 // Helper: 加密/解密 (AES)
 function encrypt(text) {
 	return crypto.AES.encrypt(text, SECRET_KEY).toString();
@@ -68,7 +48,7 @@ function decrypt(cipherText) {
 }
 
 // API: 扩展端登录
-app.post('/api/extension/login', (req, res) => {
+app.post('/api/extension/login', async (req, res) => {
 	const {phone, buyinId, fingerprint} = req.body;
 	if (!phone) {
 		return res.status(400).json({success: false, message: 'Phone is required'});
@@ -79,91 +59,90 @@ app.post('/api/extension/login', (req, res) => {
 			.json({success: false, message: 'Fingerprint is required'});
 	}
 
-	const users = readJson(USER_FILE);
-	// 查找用户 (需解密比对)
-	let userIndex = -1;
-	let foundUser = null;
+	try {
+		const users = await User.findAll();
+		let foundUser = null;
 
-	for (let i = 0; i < users.length; i++) {
-		const u = users[i];
-		try {
-			const dbPhone = decrypt(u.phone);
-			if (dbPhone === phone) {
-				userIndex = i;
-				foundUser = u;
-				break;
+		for (const u of users) {
+			try {
+				const dbPhone = decrypt(u.phone);
+				if (dbPhone === phone) {
+					foundUser = u;
+					break;
+				}
+			} catch (e) {
+				console.error('Decryption error for user:', u.id);
 			}
-		} catch (e) {
-			console.error('Decryption error for user:', u);
 		}
-	}
 
-	if (!foundUser) {
-		return res
-			.status(401)
-			.json({success: false, message: '用户不存在或未授权'});
-	}
-
-	// 检查过期时间 (简单示例，具体格式需约定)
-	if (foundUser.expirationTime) {
-		const now = new Date();
-		const exp = new Date(foundUser.expirationTime);
-		if (now > exp) {
-			return res.status(403).json({success: false, message: '授权已过期'});
+		if (!foundUser) {
+			return res
+				.status(401)
+				.json({success: false, message: '用户不存在或未授权'});
 		}
-	}
 
-	let updated = false;
-
-	// 检查/绑定 指纹
-	if (!foundUser.fingerprint) {
-		// 第一次登录，绑定指纹
-		users[userIndex].fingerprint = fingerprint;
-		updated = true;
-	} else {
-		// 对比指纹
-		if (foundUser.fingerprint !== fingerprint) {
-			return res.status(403).json({
-				success: false,
-				message: '设备环境发生变化，请使用之前的设备登录',
-			});
+		// 检查过期时间
+		if (foundUser.expirationTime) {
+			const now = new Date();
+			const exp = new Date(foundUser.expirationTime);
+			if (now > exp) {
+				return res.status(403).json({success: false, message: '授权已过期'});
+			}
 		}
+
+		let updated = false;
+
+		// 检查/绑定 指纹
+		if (!foundUser.fingerprint) {
+			// 第一次登录，绑定指纹
+			foundUser.fingerprint = fingerprint;
+			updated = true;
+		} else {
+			// 对比指纹
+			if (foundUser.fingerprint !== fingerprint) {
+				return res.status(403).json({
+					success: false,
+					message: '设备环境发生变化，请使用之前的设备登录',
+				});
+			}
+		}
+
+		// 更新 buyinId
+		if (buyinId && (!foundUser.buyinId || foundUser.buyinId !== buyinId)) {
+			foundUser.buyinId = buyinId;
+			updated = true;
+		}
+
+		if (updated) {
+			await foundUser.save();
+		}
+
+		// 生成 Token
+		const tokenPayload = JSON.stringify({
+			userId: foundUser.id,
+			phone: phone,
+			ts: Date.now(),
+		});
+		const token = encrypt(tokenPayload);
+
+		// 返回 JS 文件路径
+		const baseUrl = `${req.protocol}://${req.get('host')}`;
+		res.json({
+			success: true,
+			message: 'Login successful',
+			token: token,
+			scripts: [
+				`${baseUrl}/extension/product_info.js`,
+				`${baseUrl}/extension/product_list.js`,
+			],
+		});
+	} catch (error) {
+		console.error('Login error:', error);
+		res.status(500).json({success: false, message: 'Login failed'});
 	}
-
-	// 更新 buyinId
-	if (buyinId && (!foundUser.buyinId || foundUser.buyinId !== buyinId)) {
-		users[userIndex].buyinId = buyinId;
-		updated = true;
-	}
-
-	if (updated) {
-		users[userIndex].updateTime = new Date().toISOString();
-		writeJson(USER_FILE, users);
-	}
-
-	// 生成 Token (简单加密用户信息和时间戳)
-	// 实际生产应使用 JWT
-	const tokenPayload = JSON.stringify({
-		userId: foundUser.id,
-		phone: phone,
-		ts: Date.now(),
-	});
-	const token = encrypt(tokenPayload);
-
-	// 返回 JS 文件路径
-	const baseUrl = `${req.protocol}://${req.get('host')}`;
-	res.json({
-		success: true,
-		message: 'Login successful',
-		token: token,
-		scripts: [
-			`${baseUrl}/extension/product_info.js`,
-			`${baseUrl}/extension/product_list.js`,
-		],
-	});
 });
 
-app.get('/api/extension/check-auth', (req, res) => {
+app.get('/api/extension/check-auth', async (req, res) => {
 	const authHeader = req.headers.authorization;
 	const fingerprint = req.headers['x-device-fingerprint'];
 	console.log(
@@ -182,18 +161,8 @@ app.get('/api/extension/check-auth', (req, res) => {
 			if (payloadStr) {
 				const payload = JSON.parse(payloadStr);
 
-				// 查库验证最新状态 (防止 Token 未过期但后台把用户封了或改了过期时间)
-				const users = readJson(USER_FILE);
-				const dbUser = users.find((u) => {
-					// 1. 尝试匹配 ID (转为字符串比较以防类型差异)
-					if (String(u.id) === String(payload.userId)) return true;
-					// 2. 尝试匹配手机号 (需解密)
-					try {
-						const dbPhone = decrypt(u.phone);
-						if (dbPhone === payload.phone) return true;
-					} catch (e) {}
-					return false;
-				});
+				// 查库验证最新状态
+				const dbUser = await User.findByPk(payload.userId);
 
 				if (!dbUser) {
 					return res.status(401).json({success: false, message: '用户不存在'});
@@ -227,7 +196,13 @@ app.get('/api/extension/check-auth', (req, res) => {
 				const baseUrl = `${req.protocol}://${req.get('host')}`;
 				return res.json({
 					success: true,
-					user: dbUser, // 返回最新用户数据
+					user: {
+						id: dbUser.id,
+						phone: dbUser.phone, // Return encrypted? Or decrypted? Front end usually doesn't need phone, but original code returned whole user object.
+						buyinId: dbUser.buyinId,
+						fingerprint: dbUser.fingerprint,
+						expirationTime: dbUser.expirationTime,
+					},
 					scripts: [
 						`${baseUrl}/extension/product_info.js`,
 						`${baseUrl}/extension/product_list.js`,
@@ -268,44 +243,39 @@ function requireAdmin(req, res, next) {
 }
 
 // 1. 管理员登录
-app.post('/api/admin/login', (req, res) => {
+app.post('/api/admin/login', async (req, res) => {
 	const {username, password} = req.body;
-	const admins = readJson(ADMIN_FILE);
 
-	// 简单验证：实际应用中密码应哈希存储
-	const admin = admins.find((a) => a.username === username);
+	try {
+		const admin = await Admin.findOne({where: {username}});
+		let isAuthenticated = false;
 
-	// 这里的 admin.password 目前是 'encrypted_password_placeholder'
-	// 为了方便演示，我们暂时硬编码一个可用的账号，或者假设 admin.json 里存的是明文/简单加密
-	// 假设: 默认密码是 'admin123'，存的是 encrypt('admin123')
-	// 在生产环境中，应该比对 hash。这里为了匹配 "加密" 的描述:
-	// 如果 password 匹配解密后的值
-
-	let isAuthenticated = false;
-	if (admin) {
-		try {
-			// 尝试解密存储的密码进行比对，或者反过来
-			// 简化逻辑：如果是默认占位符，允许 admin/admin 通过
-			if (
-				admin.password === 'encrypted_password_placeholder' &&
-				password === 'admin'
-			) {
-				isAuthenticated = true;
-			} else {
-				const decryptedPass = decrypt(admin.password);
-				if (decryptedPass === password) isAuthenticated = true;
+		if (admin) {
+			try {
+				if (
+					admin.password === 'encrypted_password_placeholder' &&
+					password === 'admin'
+				) {
+					isAuthenticated = true;
+				} else {
+					const decryptedPass = decrypt(admin.password);
+					if (decryptedPass === password) isAuthenticated = true;
+				}
+			} catch (e) {
+				// 如果解密失败（可能是旧数据或哈希），回退简单比对
+				if (admin.password === password) isAuthenticated = true;
 			}
-		} catch (e) {
-			// 如果解密失败（可能是旧数据或哈希），回退简单比对
-			if (admin.password === password) isAuthenticated = true;
 		}
-	}
 
-	if (isAuthenticated) {
-		req.session.admin = {username: admin.username};
-		res.json({success: true});
-	} else {
-		res.status(401).json({success: false, message: '用户名或密码错误'});
+		if (isAuthenticated) {
+			req.session.admin = {username: admin.username};
+			res.json({success: true});
+		} else {
+			res.status(401).json({success: false, message: '用户名或密码错误'});
+		}
+	} catch (e) {
+		console.error('Admin login error:', e);
+		res.status(500).json({success: false, message: 'Login Error'});
 	}
 });
 
@@ -325,94 +295,103 @@ app.post('/api/admin/logout', (req, res) => {
 });
 
 // 4. 获取用户列表
-app.get('/api/admin/users', requireAdmin, (req, res) => {
-	const users = readJson(USER_FILE);
-	// 解密手机号返回前端展示
-	const safeUsers = users.map((u) => {
-		let displayPhone = u.phone;
-		try {
-			displayPhone = decrypt(u.phone);
-		} catch (e) {}
-		return {
-			...u,
-			phone: displayPhone,
-			fingerprint: u.fingerprint || '', // 返回指纹
-		};
-	});
-	res.json({success: true, data: safeUsers});
+app.get('/api/admin/users', requireAdmin, async (req, res) => {
+	try {
+		const users = await User.findAll();
+		// 解密手机号返回前端展示
+		const safeUsers = users.map((u) => {
+			let displayPhone = u.phone;
+			try {
+				displayPhone = decrypt(u.phone);
+			} catch (e) {}
+			return {
+				id: u.id,
+				phone: displayPhone,
+				buyinId: u.buyinId,
+				createTime: u.createdAt,
+				updateTime: u.updatedAt,
+				expirationTime: u.expirationTime,
+				fingerprint: u.fingerprint || '',
+			};
+		});
+		res.json({success: true, data: safeUsers});
+	} catch (e) {
+		res.status(500).json({success: false, message: 'Fetch users failed'});
+	}
 });
 
 // 5. 新增用户
-app.post('/api/admin/users', requireAdmin, (req, res) => {
+app.post('/api/admin/users', requireAdmin, async (req, res) => {
 	const {phone, expirationTime} = req.body;
 	if (!phone)
 		return res.status(400).json({success: false, message: '手机号必填'});
 
-	const users = readJson(USER_FILE);
+	try {
+		const users = await User.findAll();
+		// 查重
+		const exists = users.some((u) => {
+			try {
+				return decrypt(u.phone) === phone;
+			} catch (e) {
+				return false;
+			}
+		});
+		if (exists)
+			return res.status(400).json({success: false, message: '该手机号已存在'});
 
-	// 查重
-	const exists = users.some((u) => {
-		try {
-			return decrypt(u.phone) === phone;
-		} catch (e) {
-			return false;
-		}
-	});
-	if (exists)
-		return res.status(400).json({success: false, message: '该手机号已存在'});
+		const newUser = await User.create({
+			phone: encrypt(phone),
+			buyinId: '',
+			expirationTime: expirationTime || '',
+		});
 
-	const newUser = {
-		id: Date.now(), // 简单ID
-		phone: encrypt(phone),
-		buyinId: '', // 扩展端登录时自动填充
-		createTime: new Date().toISOString(),
-		updateTime: new Date().toISOString(),
-		expirationTime: expirationTime || '', // 空代表不过期
-	};
-
-	users.push(newUser);
-	writeJson(USER_FILE, users);
-	res.json({success: true, data: newUser});
+		res.json({success: true, data: newUser});
+	} catch (e) {
+		res.status(500).json({success: false, message: 'Create failed'});
+	}
 });
 
 // 6. 修改用户 (主要是过期时间)
-app.put('/api/admin/users/:id', requireAdmin, (req, res) => {
+app.put('/api/admin/users/:id', requireAdmin, async (req, res) => {
 	const {id} = req.params;
 	const {expirationTime, fingerprint} = req.body;
 
-	const users = readJson(USER_FILE);
-	const index = users.findIndex((u) => String(u.id) === String(id));
+	try {
+		const user = await User.findByPk(id);
+		if (!user)
+			return res.status(404).json({success: false, message: '用户未找到'});
 
-	if (index === -1)
-		return res.status(404).json({success: false, message: '用户未找到'});
+		if (expirationTime !== undefined) {
+			user.expirationTime = expirationTime;
+		}
+		if (fingerprint !== undefined) {
+			user.fingerprint = fingerprint;
+		}
 
-	if (expirationTime !== undefined) {
-		users[index].expirationTime = expirationTime;
+		await user.save();
+		res.json({success: true});
+	} catch (e) {
+		res.status(500).json({success: false, message: 'Update failed'});
 	}
-	// 允许管理员修改或清空指纹 (例如传空字符串重置)
-	if (fingerprint !== undefined) {
-		users[index].fingerprint = fingerprint;
-	}
-	users[index].updateTime = new Date().toISOString();
-
-	writeJson(USER_FILE, users);
-	res.json({success: true});
 });
 
 // 7. 删除用户
-app.delete('/api/admin/users/:id', requireAdmin, (req, res) => {
+app.delete('/api/admin/users/:id', requireAdmin, async (req, res) => {
 	const {id} = req.params;
-	const users = readJson(USER_FILE);
-	const newUsers = users.filter((u) => String(u.id) !== String(id));
+	try {
+		const result = await User.destroy({where: {id}});
+		if (!result)
+			return res.status(404).json({success: false, message: '用户未找到'});
 
-	if (users.length === newUsers.length)
-		return res.status(404).json({success: false, message: '用户未找到'});
-
-	writeJson(USER_FILE, newUsers);
-	res.json({success: true});
+		res.json({success: true});
+	} catch (e) {
+		res.status(500).json({success: false, message: 'Delete failed'});
+	}
 });
 
-// 启动服务
-app.listen(PORT, () => {
-	console.log(`Backend server running on http://localhost:${PORT}`);
+// 启动服务 (Database sync first)
+initDB().then(() => {
+	app.listen(PORT, () => {
+		console.log(`Backend server running on http://localhost:${PORT}`);
+	});
 });

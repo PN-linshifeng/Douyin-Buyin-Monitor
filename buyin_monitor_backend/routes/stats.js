@@ -1,22 +1,9 @@
 const express = require('express');
 const router = express.Router();
-const fs = require('fs');
-const path = require('path');
 const crypto = require('crypto-js');
+const User = require('../models/User');
 
 const SECRET_KEY = 'your_secret_key_here'; // 保持与 server.js 一致
-const USER_FILE = path.join(__dirname, '../user.json');
-
-// Helper: 读取 JSON
-function readJson(file) {
-	if (!fs.existsSync(file)) return [];
-	try {
-		const data = fs.readFileSync(file, 'utf8');
-		return JSON.parse(data);
-	} catch (e) {
-		return [];
-	}
-}
 
 // Helper: 解密
 function decrypt(cipherText) {
@@ -25,7 +12,7 @@ function decrypt(cipherText) {
 }
 
 // 中间件：Token 校验
-function verifyToken(req, res, next) {
+async function verifyToken(req, res, next) {
 	const authHeader = req.headers.authorization;
 	if (!authHeader) {
 		return res.status(401).json({success: false, message: '未提供 Token'});
@@ -44,9 +31,8 @@ function verifyToken(req, res, next) {
 
 		const payload = JSON.parse(payloadStr);
 
-		// 查库验证用户状态 (可选，为了安全性建议开启)
-		const users = readJson(USER_FILE);
-		const user = users.find((u) => String(u.id) === String(payload.userId));
+		// 查库验证用户状态
+		const user = await User.findByPk(payload.userId);
 
 		if (!user) {
 			return res.status(403).json({success: false, message: '用户不存在'});
