@@ -4,7 +4,7 @@
     "phone": "U2FsdGVkX19iiMcAbuGOy2pks59vPzSdrCWQ61gN60g=",
     "buyinId": "7494625630234001675",
     "createTime": "2025-12-17T07:19:11.626Z",
-    "updateTime": "2025-12-20T05:57:27.473Z",
+    "updateTime": "2025-12-20T15:57:45.519Z",
     "expirationTime": "2026-01-03T15:59:59.000Z",
     "fingerprint": "6a83bf85c557391c70249cd834e852ae"
   },
@@ -15,5 +15,14 @@
     "createTime": "2025-12-17T07:32:58.796Z",
     "updateTime": "2025-12-17T11:36:34.413Z",
     "expirationTime": "2026-01-15T15:59:59.000Z"
+  },
+  {
+    "id": 1766235226151,
+    "phone": "U2FsdGVkX18AjiqH0Lh8RrioKvDZwLS5+i3V6V6TJ44=",
+    "buyinId": "7494625630234001675",
+    "createTime": "2025-12-20T12:53:46.152Z",
+    "updateTime": "2025-12-20T13:11:44.238Z",
+    "expirationTime": "2026-10-31T15:59:59.000Z",
+    "fingerprint": "b89a671850926b7162a51e9330735a82"
   }
 ]

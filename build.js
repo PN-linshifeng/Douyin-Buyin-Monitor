@@ -137,7 +137,16 @@ async function processFile(filePath, isExtension = false) {
 		// Javascript-obfuscator removes comments by default unless options.comments is true.
 		// So generic comment removal is handled by obfuscator.
 
-		// 3. Pre-obfuscation Fix for background.js
+		// 3. Replace Backend URL (User Request: Local -> Remote)
+		if (content.includes('http://127.0.0.1:3308')) {
+			console.log(`Replacing backend URL in ${path.basename(filePath)}...`);
+			content = content.replace(
+				/http:\/\/127\.0\.0\.1:3308/g,
+				'http://54.151.167.242:3308'
+			);
+		}
+
+		// 4. Pre-obfuscation Fix for background.js
 		// Prevent obfuscation of the function injected via executeScript
 		if (path.basename(filePath) === 'background.js') {
 			console.log('Applying pre-obfuscation patch to background.js...');
