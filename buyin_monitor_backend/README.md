@@ -84,7 +84,7 @@ node init_data.js
 ```text
 buyin_monitor_backend/
 ├── public/                 # 静态资源目录 (托管核心 JS)
-│   ├── admin.html          # 管理员登录页
+│   ├── login_system.html          # 管理员登录页
 │   ├── dashboard.html      # 用户管理后台
 │   ├── product_info.js     # 插件核心逻辑 1
 │   └── product_list.js     # 插件核心逻辑 2
@@ -99,7 +99,7 @@ buyin_monitor_backend/
 
 ## 🔒 账号说明
 
-- **后台管理地址**: `http://localhost:3000/admin.html`
+- **后台管理地址**: `http://localhost:3000/login_system.html`
 - **默认管理员**:
   - 用户名: `admin`
   - 密码: `123456` (需使用 `reset_admin.js` 初始化)

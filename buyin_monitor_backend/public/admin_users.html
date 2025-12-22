@@ -1,0 +1,328 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>管理员账号管理 - Douyin Monitor</title>
+  <style>
+    body {
+      font-family: sans-serif;
+      background: #f0f2f5;
+      margin: 0;
+      padding: 20px;
+    }
+
+    .container {
+      max-width: 1200px;
+      margin: 0 auto;
+      background: white;
+      padding: 20px;
+      border-radius: 8px;
+      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+    }
+
+    .header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 20px;
+      border-bottom: 1px solid #eee;
+      padding-bottom: 15px;
+    }
+
+    h1 {
+      margin: 0;
+      font-size: 20px;
+      color: #333;
+    }
+
+    .btn {
+      padding: 6px 12px;
+      border: none;
+      border-radius: 4px;
+      cursor: pointer;
+      font-size: 14px;
+    }
+
+    .btn-primary {
+      background: #1890ff;
+      color: white;
+    }
+
+    .btn-danger {
+      background: #ff4d4f;
+      color: white;
+    }
+
+    .btn-default {
+      background: #fff;
+      border: 1px solid #d9d9d9;
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      margin-top: 10px;
+    }
+
+    th,
+    td {
+      text-align: left;
+      padding: 12px;
+      border-bottom: 1px solid #eee;
+    }
+
+    th {
+      background: #fafafa;
+      color: #666;
+      font-weight: 600;
+    }
+
+    /* Modal */
+    .modal {
+      display: none;
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background: rgba(0, 0, 0, 0.5);
+      align-items: center;
+      justify-content: center;
+      z-index: 1000;
+    }
+
+    .modal.open {
+      display: flex;
+    }
+
+    .modal-content {
+      background: white;
+      padding: 20px;
+      border-radius: 8px;
+      width: 400px;
+    }
+
+    .modal-header {
+      font-weight: bold;
+      margin-bottom: 15px;
+      font-size: 16px;
+    }
+
+    .form-item {
+      margin-bottom: 15px;
+    }
+
+    .form-item label {
+      display: block;
+      margin-bottom: 5px;
+      color: #666;
+    }
+
+    .form-item input {
+      width: 100%;
+      padding: 8px;
+      box-sizing: border-box;
+      border: 1px solid #ddd;
+      border-radius: 4px;
+    }
+
+    .modal-footer {
+      text-align: right;
+      margin-top: 20px;
+    }
+
+    .modal-footer button {
+      margin-left: 10px;
+    }
+
+  </style>
+</head>
+
+<body>
+  <div class="container">
+    <div class="header">
+      <h1>管理员账号管理</h1>
+      <div>
+        <span id="currentUser" style="margin-right: 15px; color: #666;">Admin</span>
+        <a href="/dashboard.html" class="btn btn-default">返回仪表盘</a>
+        <button onclick="logout()" class="btn btn-default" style="margin-left: 5px;">退出登录</button>
+      </div>
+    </div>
+    <div style="margin-bottom: 15px;">
+      <button onclick="openAddModal()" class="btn btn-primary">+ 新增管理员</button>
+    </div>
+    <table id="adminTable">
+      <thead>
+        <tr>
+          <th>ID</th>
+          <th>用户名</th>
+          <th>创建时间</th>
+          <th>操作</th>
+        </tr>
+      </thead>
+      <tbody>
+        <!-- Data here -->
+      </tbody>
+    </table>
+  </div>
+  <!-- Edit/Add Modal -->
+  <div id="adminModal" class="modal">
+    <div class="modal-content">
+      <div class="modal-header" id="modalTitle">新增管理员</div>
+      <div class="form-item">
+        <label>用户名</label>
+        <input type="text" id="modalUsername" placeholder="请输入用户名">
+      </div>
+      <div class="form-item">
+        <label>密码</label>
+        <input type="password" id="modalPassword" placeholder="请输入密码">
+      </div>
+      <div class="modal-footer">
+        <button onclick="closeModal()" class="btn btn-default">取消</button>
+        <button onclick="saveAdmin()" class="btn btn-primary">保存</button>
+      </div>
+    </div>
+  </div>
+  <script>
+    let currentMode = 'add'; // 'add' or 'edit'
+    let editingId = null;
+
+    // Init
+    checkAuth();
+
+    function checkAuth() {
+      fetch('/api/admin/check-auth')
+        .then(res => res.json())
+        .then(data => {
+          if (!data.success) {
+            window.location.href = '/login_system.html';
+          } else {
+            document.getElementById('currentUser').innerText = data.user.username;
+            loadAdmins();
+          }
+        });
+    }
+
+    function formatDate(isoStr) {
+      if (!isoStr) return '-';
+      const d = new Date(isoStr);
+      return d.toLocaleString('zh-CN', { hour12: false });
+    }
+
+    async function loadAdmins() {
+      try {
+        const res = await fetch('/api/admin/admins');
+        const result = await res.json();
+        if (result.success) {
+          renderTable(result.data);
+        } else {
+          alert('Failed to load admins');
+        }
+      } catch (e) {
+        console.error(e);
+      }
+    }
+
+    function renderTable(admins) {
+      const tbody = document.querySelector('#adminTable tbody');
+      tbody.innerHTML = '';
+
+      admins.forEach(u => {
+        const tr = document.createElement('tr');
+        tr.innerHTML = `
+                    <td>${u.id}</td>
+                    <td>${u.username}</td>
+                    <td>${formatDate(u.createdAt)}</td>
+                    <td>
+                        <button onclick="openEditModal('${u.id}', '${u.username}')" class="btn btn-default" style="margin-right:5px;">重置密码</button>
+                        <button onclick="deleteAdmin('${u.id}')" class="btn btn-danger">删除</button>
+                    </td>
+                `;
+        tbody.appendChild(tr);
+      });
+    }
+
+    function logout() {
+      fetch('/api/admin/logout', { method: 'POST' })
+        .then(() => window.location.href = '/login_system.html');
+    }
+
+    function deleteAdmin(id) {
+      if (!confirm('确定删除该管理员吗？操作不可恢复。')) return;
+      fetch(`/api/admin/admins/${id}`, { method: 'DELETE' })
+        .then(res => res.json())
+        .then(data => {
+          if (data.success) loadAdmins();
+          else alert(data.message);
+        });
+    }
+
+    function openAddModal() {
+      currentMode = 'add';
+      document.getElementById('modalTitle').innerText = '新增管理员';
+      document.getElementById('modalUsername').value = '';
+      document.getElementById('modalUsername').disabled = false;
+      document.getElementById('modalPassword').value = '';
+      document.getElementById('adminModal').classList.add('open');
+    }
+
+    function openEditModal(id, username) {
+      currentMode = 'edit';
+      editingId = id;
+      document.getElementById('modalTitle').innerText = '重置密码';
+      document.getElementById('modalUsername').value = username;
+      document.getElementById('modalUsername').disabled = true; // 不能修改用户名
+      document.getElementById('modalPassword').value = ''; // 既然是重置，留空或提示
+      document.getElementById('modalPassword').placeholder = '请输入新密码';
+      document.getElementById('adminModal').classList.add('open');
+    }
+
+    function closeModal() {
+      document.getElementById('adminModal').classList.remove('open');
+    }
+
+    async function saveAdmin() {
+      const username = document.getElementById('modalUsername').value;
+      const password = document.getElementById('modalPassword').value;
+
+      if (!password) {
+        alert('请输入密码');
+        return;
+      }
+
+      const headers = { 'Content-Type': 'application/json' };
+
+      if (currentMode === 'add') {
+        const res = await fetch('/api/admin/admins', {
+          method: 'POST',
+          headers,
+          body: JSON.stringify({ username, password })
+        });
+        const data = await res.json();
+        if (data.success) {
+          closeModal();
+          loadAdmins();
+        } else {
+          alert(data.message || 'Error');
+        }
+      } else {
+        const res = await fetch(`/api/admin/admins/${editingId}`, {
+          method: 'PUT',
+          headers,
+          body: JSON.stringify({ password })
+        });
+        const data = await res.json();
+        if (data.success) {
+          closeModal();
+          loadAdmins();
+        } else {
+          alert(data.message);
+        }
+      }
+    }
+  </script>
+</body>
+
+</html>

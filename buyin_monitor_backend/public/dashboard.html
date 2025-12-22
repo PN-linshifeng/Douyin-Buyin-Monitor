@@ -160,12 +160,13 @@
 <body>
   <div class="container">
     <div class="header">
-      <h1>用户管理</h1>
+      <h1>Monitor 管理后台</h1>
       <div>
         <span id="currentUser" style="margin-right: 15px; color: #666;">Admin</span>
         <button onclick="logout()" class="btn btn-default">退出登录</button>
       </div>
     </div>
+    <!-- User Management Section -->
     <div style="margin-bottom: 15px;">
       <button onclick="openAddModal()" class="btn btn-primary">+ 新增用户</button>
     </div>
@@ -221,7 +222,7 @@
         .then(res => res.json())
         .then(data => {
           if (!data.success) {
-            window.location.href = '/admin.html';
+            window.location.href = '/login_system.html';
           } else {
             document.getElementById('currentUser').innerText = data.user.username;
             loadUsers();
@@ -234,6 +235,8 @@
       const d = new Date(isoStr);
       return d.toLocaleString('zh-CN', { hour12: false });
     }
+
+    // --- User Logic ---
 
     function isExpired(dateStr) {
       if (!dateStr) return false;
@@ -276,13 +279,6 @@
       });
     }
 
-    // --- Actions ---
-
-    function logout() {
-      fetch('/api/admin/logout', { method: 'POST' })
-        .then(() => window.location.href = '/admin.html');
-    }
-
     function deleteUser(id) {
       if (!confirm('确定删除该用户吗？')) return;
       fetch(`/api/admin/users/${id}`, { method: 'DELETE' })
@@ -292,8 +288,6 @@
           else alert(data.message);
         });
     }
-
-    // --- Modal ---
 
     function openAddModal() {
       currentMode = 'add';
@@ -372,6 +366,11 @@
           alert(data.message);
         }
       }
+    }
+
+    function logout() {
+      fetch('/api/admin/logout', { method: 'POST' })
+        .then(() => window.location.href = '/login_system.html');
     }
   </script>
 </body>

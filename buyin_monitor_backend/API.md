@@ -63,7 +63,7 @@
 
 ## 管理员后台 API
 
-这些接口供管理员前端页面 (`admin.html`, `dashboard.html`) 使用，受 Session 保护。
+这些接口供管理员前端页面 (`login_system.html`, `dashboard.html`) 使用，受 Session 保护。
 
 ### 1. 管理员登录
 - **URL**: `/api/admin/login`
