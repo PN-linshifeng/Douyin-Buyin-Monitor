@@ -142,7 +142,7 @@ async function processFile(filePath, isExtension = false) {
 			console.log(`Replacing backend URL in ${path.basename(filePath)}...`);
 			content = content.replace(
 				/http:\/\/127\.0\.0\.1:3308/g,
-				'http://54.151.167.242:3308'
+				'http://8.148.4.165:3308'
 			);
 		}
 

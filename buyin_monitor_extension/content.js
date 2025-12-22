@@ -4,7 +4,7 @@
 		'color: #4eca06; font-weight: bold; font-size: 14px;'
 	);
 
-	// const BACKEND_URL = 'http://54.151.167.242:3308';
+	// const BACKEND_URL = 'http://8.148.4.165:3308';
 	const BACKEND_URL = 'http://127.0.0.1:3308';
 
 	// 辅助函数: 通过 Background 代理请求，绕过 Mixed Content / CSP 限制
@@ -281,8 +281,8 @@
 					msg.style.color = 'red';
 					msg.innerText = result.message || '登录失败';
 					// 如果是过期，弹窗提示
-					if (res.status === 403 || result.message.includes('过期')) {
-						alert('账号过期');
+					if (res.status === 403) {
+						alert(result.message);
 					}
 					btn.disabled = false;
 				}

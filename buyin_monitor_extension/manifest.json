@@ -1,12 +1,12 @@
 {
 	"manifest_version": 3,
-	"name": "测试AI助你选品",
+	"name": "测试AI选品助手",
 	"version": "1.2",
 	"description": "Listen and log requests on buyin.jinritemai.com",
 	"permissions": ["webRequest", "scripting"],
 	"host_permissions": [
 		"*://buyin.jinritemai.com/*",
-		"http://54.151.167.242:3308/*",
+		"http://8.148.4.165:3308/*",
 		"http://127.0.0.1:3308/*"
 	],
 	"background": {

@@ -375,7 +375,7 @@
 			}
 
 			// 简单的防频控延时
-			await new Promise((r) => setTimeout(r, 1000 + Math.random() * 3000));
+			await new Promise((r) => setTimeout(r, 1000 + Math.random() * 1000));
 		}
 
 		console.log('[批量分析] 完成!');

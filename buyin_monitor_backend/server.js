@@ -23,7 +23,7 @@ app.use(
 		allowedHeaders: ['Content-Type', 'Authorization', 'x-device-fingerprint'],
 	})
 );
-app.use(bodyParser.json());
+app.use(bodyParser.json({limit: '50mb'}));
 app.use(
 	session({
 		secret: 'session_secret',
@@ -391,7 +391,10 @@ app.delete('/api/admin/users/:id', requireAdmin, async (req, res) => {
 
 // 启动服务 (Database sync first)
 initDB().then(() => {
-	app.listen(PORT, () => {
+	const server = app.listen(PORT, () => {
 		console.log(`Backend server running on http://localhost:${PORT}`);
 	});
+	// Prevent 502 errors from Nginx/Load Balancer timeouts
+	server.keepAliveTimeout = 65000; // Ensure it's higher than Nginx's keepalive_timeout (usually 60s)
+	server.headersTimeout = 66000; // Should be higher than keepAliveTimeout
 });

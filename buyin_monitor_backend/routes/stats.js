@@ -11,6 +11,31 @@ function decrypt(cipherText) {
 	return bytes.toString(crypto.enc.Utf8);
 }
 
+// 简单的内存缓存
+const tokenCache = new Map();
+const CACHE_TTL = 60 * 1000; // 1分钟缓存
+
+function getCachedUser(token) {
+	const cached = tokenCache.get(token);
+	if (!cached) return null;
+	if (Date.now() > cached.expiry) {
+		tokenCache.delete(token);
+		return null;
+	}
+	return cached.user;
+}
+
+function setCachedUser(token, user) {
+	tokenCache.set(token, {
+		user: user,
+		expiry: Date.now() + CACHE_TTL,
+	});
+	// 简单的清理逻辑：如果缓存过大，清空
+	if (tokenCache.size > 1000) {
+		tokenCache.clear();
+	}
+}
+
 // 中间件：Token 校验
 async function verifyToken(req, res, next) {
 	const authHeader = req.headers.authorization;
@@ -31,8 +56,19 @@ async function verifyToken(req, res, next) {
 
 		const payload = JSON.parse(payloadStr);
 
-		// 查库验证用户状态
-		const user = await User.findByPk(payload.userId);
+		// Check cache first
+		const cachedUser = getCachedUser(token);
+		let user;
+
+		if (cachedUser) {
+			user = cachedUser;
+		} else {
+			// 查库验证用户状态
+			user = await User.findByPk(payload.userId);
+			if (user) {
+				setCachedUser(token, user);
+			}
+		}
 
 		if (!user) {
 			return res.status(403).json({success: false, message: '用户不存在'});
