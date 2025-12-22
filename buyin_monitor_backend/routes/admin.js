@@ -140,9 +140,9 @@ router.put('/users/:id', requireAdmin, async (req, res) => {
 		if (!user)
 			return res.status(404).json({success: false, message: '用户未找到'});
 
-		if (expirationTime !== undefined) {
-			user.expirationTime = expirationTime;
-		}
+		// if (expirationTime !== undefined) {
+		// 	user.expirationTime = expirationTime;
+		// }
 		if (fingerprint !== undefined) {
 			user.fingerprint = fingerprint;
 		}

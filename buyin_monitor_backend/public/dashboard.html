@@ -154,6 +154,13 @@
       margin-left: 10px;
     }
 
+    .quick-btn {
+      padding: 2px 8px;
+      font-size: 12px;
+      margin-right: 5px;
+      margin-top: 5px;
+    }
+
   </style>
 </head>
 
@@ -196,9 +203,15 @@
         <label>手机号</label>
         <input type="text" id="modalPhone" placeholder="请输入手机号">
       </div>
-      <div class="form-item">
+      <div class="form-item" id="expireGroup">
         <label>过期时间 (格式: YYYY-MM-DD)</label>
         <input type="date" id="modalExpire">
+        <div id="quickSelectGroup">
+          <button type="button" onclick="setExpire(3)" class="btn btn-default quick-btn">3天</button>
+          <button type="button" onclick="setExpire(7)" class="btn btn-default quick-btn">一周</button>
+          <button type="button" onclick="setExpire(90)" class="btn btn-default quick-btn">一季度</button>
+          <button type="button" onclick="setExpire(365)" class="btn btn-default quick-btn">一年</button>
+        </div>
       </div>
       <div class="form-item" id="fingerprintGroup">
         <label>指纹 (清空可解绑设备)</label>
@@ -234,6 +247,15 @@
       if (!isoStr) return '-';
       const d = new Date(isoStr);
       return d.toLocaleString('zh-CN', { hour12: false });
+    }
+
+    function setExpire(days) {
+      const date = new Date();
+      date.setDate(date.getDate() + days);
+      const year = date.getFullYear();
+      const month = String(date.getMonth() + 1).padStart(2, '0');
+      const day = String(date.getDate()).padStart(2, '0');
+      document.getElementById('modalExpire').value = `${year}-${month}-${day}`;
     }
 
     // --- User Logic ---
@@ -295,6 +317,7 @@
       document.getElementById('modalPhone').value = '';
       document.getElementById('modalPhone').disabled = false;
       document.getElementById('modalExpire').value = '';
+      document.getElementById('expireGroup').style.display = 'block';
       document.getElementById('modalFingerprint').value = '';
       document.getElementById('fingerprintGroup').style.display = 'none'; // 新增时不填指纹，登录自动绑定
       document.getElementById('userModal').classList.add('open');
@@ -306,6 +329,8 @@
       document.getElementById('modalTitle').innerText = '修改用户';
       document.getElementById('modalPhone').value = '(用户ID: ' + id + ')';
       document.getElementById('modalPhone').disabled = true;
+
+      document.getElementById('expireGroup').style.display = 'none';
 
       // Format to YYYY-MM-DD for input[type=date]
       let dateVal = '';
@@ -336,6 +361,11 @@
       let expirationTime = '';
       if (expireDate) {
         expirationTime = new Date(expireDate + 'T23:59:59').toISOString();
+      }
+
+      // Edit mode: do not send expirationTime
+      if (currentMode === 'edit') {
+        expirationTime = undefined;
       }
 
       if (currentMode === 'add') {
