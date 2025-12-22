@@ -168,6 +168,31 @@ router.delete('/users/:id', requireAdmin, async (req, res) => {
 	}
 });
 
+// 7.5. 用户续费 (专门接口)
+router.post('/users/:id/renew', requireAdmin, async (req, res) => {
+	const {id} = req.params;
+	const {expirationTime} = req.body;
+
+	if (!expirationTime) {
+		return res
+			.status(400)
+			.json({success: false, message: 'Missing expirationTime'});
+	}
+
+	try {
+		const user = await User.findByPk(id);
+		if (!user)
+			return res.status(404).json({success: false, message: 'User not found'});
+
+		user.expirationTime = expirationTime;
+		await user.save();
+
+		res.json({success: true, message: 'Renew successful', data: user});
+	} catch (e) {
+		res.status(500).json({success: false, message: 'Renew failed'});
+	}
+});
+
 // ===========================
 // 配置管理 (Configs)
 // ===========================

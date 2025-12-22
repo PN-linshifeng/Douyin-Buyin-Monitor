@@ -223,6 +223,36 @@
       </div>
     </div>
   </div>
+  <!-- Renew Modal -->
+  <div id="renewModal" class="modal">
+    <div class="modal-content">
+      <div class="modal-header">用户续费</div>
+      <div class="form-item">
+        <label>用户 (ID / 手机号)</label>
+        <input type="text" id="renewPhone" disabled>
+      </div>
+      <div class="form-item">
+        <label>当前过期时间</label>
+        <div id="renewCurrentExpire"
+             style="padding: 8px; background: #f5f5f5; border-radius: 4px; color: #666; margin-bottom: 5px;">-</div>
+      </div>
+      <div class="form-item">
+        <label>续费后过期时间 (格式: YYYY-MM-DD)</label>
+        <input type="date" id="renewNewExpire">
+        <div id="renewQuickGroup">
+          <button type="button" onclick="setRenewDuration(3)" class="btn btn-default quick-btn">3天</button>
+          <button type="button" onclick="setRenewDuration(7)" class="btn btn-default quick-btn">一周</button>
+          <button type="button" onclick="setRenewDuration(30)" class="btn btn-default quick-btn">一个月</button>
+          <button type="button" onclick="setRenewDuration(90)" class="btn btn-default quick-btn">一季度</button>
+          <button type="button" onclick="setRenewDuration(365)" class="btn btn-default quick-btn">一年</button>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button onclick="closeRenewModal()" class="btn btn-default">取消</button>
+        <button onclick="saveRenew()" class="btn btn-primary">确认续费</button>
+      </div>
+    </div>
+  </div>
   <script>
     let currentMode = 'add'; // 'add' or 'edit'
     let editingId = null;
@@ -293,6 +323,7 @@
                     <td title="${u.fingerprint || ''}">${u.fingerprint ? (u.fingerprint.substring(0, 8) + '...') : '-'}</td>
                     <td>${statusHtml}</td>
                     <td>
+                        <button onclick="openRenewModal('${u.id}', '${u.phone}', '${u.expirationTime || ''}')" class="btn btn-primary" style="margin-right:5px;">续费</button>
                         <button onclick="openEditModal('${u.id}', '${u.expirationTime || ''}', '${u.fingerprint || ''}')" class="btn btn-default" style="margin-right:5px;">修改</button>
                         <button onclick="deleteUser('${u.id}')" class="btn btn-danger">删除</button>
                     </td>
@@ -395,6 +426,80 @@
         } else {
           alert(data.message);
         }
+      }
+    }
+
+    // --- Renew Logic ---
+
+    let renewingId = null;
+    let renewBaseDate = null; // Date object
+
+    function openRenewModal(id, phone, currentExpireStr) {
+      renewingId = id;
+      document.getElementById('renewPhone').value = `${phone} (ID: ${id})`;
+
+      const now = new Date();
+      let base = now;
+
+      if (currentExpireStr) {
+        const exp = new Date(currentExpireStr);
+        document.getElementById('renewCurrentExpire').innerText = formatDate(currentExpireStr);
+        // 如果当前未过期，则从当前过期时间开始续费
+        if (exp > now) {
+          base = exp;
+        } else {
+          // 已过期，显示状态，基准时间设为现在
+          document.getElementById('renewCurrentExpire').innerText += ' (已过期)';
+        }
+      } else {
+        document.getElementById('renewCurrentExpire').innerText = '当前无期限 / 已过期';
+      }
+
+      renewBaseDate = base;
+      // 默认清空新日期，等待选择
+      document.getElementById('renewNewExpire').value = '';
+
+      document.getElementById('renewModal').classList.add('open');
+    }
+
+    function closeRenewModal() {
+      document.getElementById('renewModal').classList.remove('open');
+    }
+
+    function setRenewDuration(days) {
+      if (!renewBaseDate) renewBaseDate = new Date();
+      const targetDate = new Date(renewBaseDate); // Clone
+      targetDate.setDate(targetDate.getDate() + days);
+
+      const year = targetDate.getFullYear();
+      const month = String(targetDate.getMonth() + 1).padStart(2, '0');
+      const day = String(targetDate.getDate()).padStart(2, '0');
+
+      document.getElementById('renewNewExpire').value = `${year}-${month}-${day}`;
+    }
+
+    async function saveRenew() {
+      const dateVal = document.getElementById('renewNewExpire').value;
+      if (!dateVal) {
+        alert('请选择或输入续费后的过期时间');
+        return;
+      }
+
+      // 设置为当天的 23:59:59
+      const expirationTime = new Date(dateVal + 'T23:59:59').toISOString();
+
+      const res = await fetch(`/api/admin/users/${renewingId}/renew`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ expirationTime })
+      });
+
+      const data = await res.json();
+      if (data.success) {
+        closeRenewModal();
+        loadUsers();
+      } else {
+        alert(data.message || '续费失败');
       }
     }
 
