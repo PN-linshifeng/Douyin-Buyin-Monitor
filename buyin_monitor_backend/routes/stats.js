@@ -261,7 +261,7 @@ function calculateStats(data, days, productPrice, promotionId) {
 	if (typeof productPriceRaw === 'string') {
 		productPriceRaw = parseFloat(productPriceRaw.replace(/[^\d.]/g, '')) || 0;
 	}
-	productPriceRaw = productPriceRaw / 100; // 转换为元
+	productPriceRaw = productPriceRaw; // 转换为元
 
 	const livePriceVal = stats.live.price;
 	// "直播出单规格" 对应变量 specDiff

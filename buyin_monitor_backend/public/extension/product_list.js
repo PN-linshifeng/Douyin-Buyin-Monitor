@@ -10,6 +10,10 @@
 	// 存储批量抓取的结果
 	let batchResultsMap = new Map();
 
+	// 批量分析控制状态
+	let batchAnalysisActive = false;
+	let stopBatchSignalled = false;
+
 	// 处理接口返回的列表数据
 	function processList(payload) {
 		const {url, requestBody, body} = payload;
@@ -32,14 +36,25 @@
 				resData = body;
 			}
 
-			if (reqData.cursor === 0 || reqData.cursor === '0') {
-				savedPromotions = [];
-			}
-
 			// 3. 追加推广信息到缓存
 			if (resData && resData.data && resData.data.summary_promotions) {
 				const promotions = resData.data.summary_promotions;
+
+				// 仅在确定有新数据时，且是第一页，才清空缓存
+				if (
+					(reqData.cursor === 0 || reqData.cursor === '0') &&
+					promotions.length > 0
+				) {
+					savedPromotions = [];
+					console.log('[商品列表] 检测到首页数据，已重置缓存');
+				}
+
 				savedPromotions = savedPromotions.concat(promotions);
+				console.log(
+					`[商品列表] 成功捕获 ${promotions.length} 条商品数据，总缓存: ${savedPromotions.length}`
+				);
+				// 捕获到数据后，尝试注入批量按钮
+				injectBatchButton();
 			}
 			console.log(savedPromotions);
 			// 数据更新后尝试注入按钮
@@ -320,14 +335,27 @@
 
 	// 批量分析处理函数
 	async function handleBatchAnalyze(btn) {
-		if (savedPromotions.length === 0) {
-			alert('当前没有缓存的商品数据，请先滚动页面加载商品');
+		// 如果已经在运行，再次点击则视为“停止”
+		if (batchAnalysisActive) {
+			stopBatchSignalled = true;
+			btn.innerText = '正在停止...';
+			btn.disabled = true;
 			return;
 		}
 
+		if (savedPromotions.length === 0) {
+			alert('当前没有缓存的商品数据，请刷新页面');
+			return;
+		}
+
+		// 初始化运行状态
+		batchAnalysisActive = true;
+		stopBatchSignalled = false;
 		const originalText = btn.innerText;
-		btn.innerText = '分析中...';
-		btn.disabled = true;
+		const originalBg = btn.style.backgroundColor;
+
+		btn.innerText = '停止批量分析';
+		btn.style.backgroundColor = '#ff4d4f'; // 改为红色表示可停止
 
 		console.log(`[批量分析] 开始处理 ${savedPromotions.length} 个商品...`);
 
@@ -341,6 +369,7 @@
 
 		// 标记所有待分析项为等待
 		for (const promo of savedPromotions) {
+			if (stopBatchSignalled) break;
 			const pid = promo.promotion_id;
 			if (!pid || batchResultsMap.has(pid)) continue;
 
@@ -351,8 +380,16 @@
 
 		let successCount = 0;
 		let failCount = 0;
+		let isStoppedManually = false;
 
 		for (const promo of savedPromotions) {
+			// 检查是否收到了停止信号
+			if (stopBatchSignalled) {
+				console.log('[批量分析] 收到停止信号，正在中断...');
+				isStoppedManually = true;
+				break;
+			}
+
 			const promotionId = promo.promotion_id;
 			if (!promotionId) continue;
 
@@ -378,12 +415,24 @@
 			await new Promise((r) => setTimeout(r, 1000 + Math.random() * 1000));
 		}
 
-		console.log('[批量分析] 完成!');
+		console.log(
+			isStoppedManually ? '[批量分析] 已手动停止' : '[批量分析] 全部完成!'
+		);
 		console.log(`成功: ${successCount}, 失败: ${failCount}`);
-		console.log('结果 Map:', batchResultsMap);
-		alert(`批量分析完成\n成功: ${successCount}\n失败: ${failCount}`);
 
+		if (!isStoppedManually || successCount + failCount > 0) {
+			alert(
+				`${
+					isStoppedManually ? '批量分析已暂停' : '批量分析完成'
+				}\n本次成功: ${successCount}\n本次失败: ${failCount}`
+			);
+		}
+
+		// 恢复状态
+		batchAnalysisActive = false;
+		stopBatchSignalled = false;
 		btn.innerText = originalText;
+		btn.style.backgroundColor = originalBg;
 		btn.disabled = false;
 	}
 
@@ -393,6 +442,10 @@
 			window.location.href.indexOf('/dashboard/merch-picking-library?') === -1
 		)
 			return;
+
+		// 只有当 savedPromotions 有数据时才允许插入按钮
+		if (savedPromotions.length === 0) return;
+
 		if (document.getElementById('douyin-monitor-batch-btn')) return;
 
 		const btn = document.createElement('button');

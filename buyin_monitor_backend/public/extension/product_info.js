@@ -567,6 +567,11 @@
 				return fetchDataFordays(days, promotionId, decision_enter_from);
 			});
 			const results = await Promise.all(promises);
+			results.forEach((item) => {
+				if (item.data === null) {
+					throw new Error(`${item.msg}`);
+				}
+			});
 
 			// 3. 获取商品信息 (如果未传递)
 			if (!productName) {
@@ -580,14 +585,15 @@
 					'[class*="index_module__dataContent"]'
 				);
 				if (contentEl) {
-					const ele = [...contentEl.childNodes].filter((k) => k.nodeType === 3);
-					ele.shift();
-					let priceStr = ele.map((k) => k.nodeValue).join('');
-					productPrice = Number(priceStr);
+					const ele = contentEl.textContent
+						.split(/¥|规/)
+						.filter((k) => Number(k));
+					productPrice = Number(ele[0] || 0);
 				} else {
 					productPrice = 0;
 				}
 			}
+			console.log(results, '=========results');
 
 			// 4. 调用后端 API 计算统计数据
 			if (results && results.length > 0) {
@@ -665,7 +671,7 @@
 		} catch (error) {
 			console.error('获取数据失败', error);
 			if (!skipPopup) {
-				alert('analyzeAndShow 获取数据失败: ' + error.message);
+				alert(error.message);
 			}
 			throw error;
 		}
