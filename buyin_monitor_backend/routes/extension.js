@@ -90,6 +90,7 @@ router.post('/login', async (req, res) => {
 			scripts: [
 				`${baseUrl}/extension/product_info.js`,
 				`${baseUrl}/extension/product_list.js`,
+				`${baseUrl}/extension/coupon_sniffer.js`,
 			],
 		});
 	} catch (error) {
@@ -163,6 +164,7 @@ router.get('/check-auth', async (req, res) => {
 					scripts: [
 						`${baseUrl}/extension/product_info.js`,
 						`${baseUrl}/extension/product_list.js`,
+						`${baseUrl}/extension/coupon_sniffer.js`,
 					],
 				});
 			}
@@ -180,6 +182,7 @@ router.get('/check-auth', async (req, res) => {
 			scripts: [
 				`${baseUrl}/extension/product_info.js`,
 				`${baseUrl}/extension/product_list.js`,
+				`${baseUrl}/extension/coupon_sniffer.js`,
 			],
 		});
 	}
