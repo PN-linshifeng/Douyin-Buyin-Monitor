@@ -1,6 +1,6 @@
 (function () {
 	console.log(
-		'%c [Douyin Monitor] Content Script Loaded v2.0 (Dynamic Loader)',
+		'%c [抖音选品助手] 内容脚本已加载 v2.0 (动态加载器)',
 		'color: #4eca06; font-weight: bold; font-size: 14px;'
 	);
 	const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
@@ -64,7 +64,7 @@
 					'*'
 				);
 			} catch (e) {
-				console.error('Calculate stats proxy error:', e);
+				console.error('[抖音选品助手] 计算统计代理请求错误:', e);
 				window.postMessage(
 					{
 						type: 'DOUYIN_MONITOR_FETCH_RESULT',
@@ -84,10 +84,7 @@
 	function injectScript(file_path, isExternal = false) {
 		if (isExternal) {
 			// 通过 Background 注入远程脚本 (绕过页面 CSP script-src)
-			console.log(
-				'[Douyin Monitor] Requesting background to inject:',
-				file_path
-			);
+			console.log('[抖音选品助手] 请求后台注入脚本:', file_path);
 			chrome.runtime.sendMessage(
 				{
 					type: 'INJECT_REMOTE_SCRIPT',
@@ -96,7 +93,7 @@
 				(response) => {
 					if (!response || !response.success) {
 						console.error(
-							'[Douyin Monitor] Failed to inject remote script:',
+							'[抖音选品助手] 远程脚本注入失败:',
 							file_path,
 							response?.error || chrome.runtime.lastError
 						);
@@ -109,7 +106,7 @@
 							alert('无法执行远程脚本：页面 CSP 策略过严 (禁止 eval)');
 						}
 					} else {
-						console.log('[Douyin Monitor] Remote script injected successfully');
+						console.log('[抖音选品助手] 远程脚本注入成功');
 					}
 				}
 			);
@@ -130,29 +127,79 @@
 		injectScript(chrome.runtime.getURL('injected.js'));
 		// 不管是否登录，优先加载主脚本
 		injectScript(`${BACKEND_URL}/extension/main.js`, true);
-		// injectScript(`http://8.148.4.165:3308/extension/product_info.js`, true);
 	} catch (e) {
-		console.error('[Douyin Monitor] Injection failed:', e);
+		alert('AI选品助手加载失败，请稍后重试' + e);
 	}
 
 	// ===========================
 	// 0.5 指纹生成逻辑 (FingerprintJS)
 	// ===========================
 	async function getFingerprint() {
-		try {
-			// FingerprintJS 在 fp.js 加载后会挂载到 window.FingerprintJS
-			if (typeof FingerprintJS === 'undefined') {
-				console.error('FingerprintJS library not loaded');
-				return 'unknown_device_lib_missing';
+		return new Promise((resolve) => {
+			const fallbackToLocalStorage = async () => {
+				const localFp = localStorage.getItem('dm_device_fingerprint_fallback');
+				if (localFp) {
+					resolve(localFp);
+					return;
+				}
+				await generateAndSave(false);
+			};
+
+			const generateAndSave = async (useChromeStorage = false) => {
+				try {
+					if (typeof FingerprintJS === 'undefined') {
+						resolve('正在加载中，请稍后登录...');
+						alert('正在加载中，请稍后登录...');
+						return;
+					}
+					const fp = await FingerprintJS.load();
+					const res = await fp.get();
+					const visitorId = res.visitorId;
+
+					if (useChromeStorage) {
+						chrome.storage.local.set({dm_device_fingerprint: visitorId});
+					} else {
+						localStorage.setItem('dm_device_fingerprint_fallback', visitorId);
+					}
+					resolve(visitorId);
+				} catch (e) {
+					alert('指纹生成失败，请稍后登录...');
+					resolve('unknown_device_error');
+				}
+			};
+
+			// 优先尝试 chrome.storage (更持久)
+			if (
+				typeof chrome !== 'undefined' &&
+				chrome.storage &&
+				chrome.storage.local
+			) {
+				try {
+					chrome.storage.local.get(['dm_device_fingerprint'], (result) => {
+						if (chrome.runtime.lastError) {
+							console.warn(
+								'[抖音选品助手] storage 读取失败，降级:',
+								chrome.runtime.lastError
+							);
+							fallbackToLocalStorage();
+							return;
+						}
+						if (result && result.dm_device_fingerprint) {
+							resolve(result.dm_device_fingerprint);
+						} else {
+							generateAndSave(true);
+						}
+					});
+				} catch (err) {
+					console.warn('[抖音选品助手] accessing chrome.storage failed:', err);
+					fallbackToLocalStorage();
+				}
+			} else {
+				// 降级使用 localStorage
+				// console.warn('[抖音选品助手] chrome.storage 不可用，降级使用 localStorage');
+				fallbackToLocalStorage();
 			}
-			const fp = await FingerprintJS.load();
-			// get() 返回 { visitorId: "..." }
-			const result = await fp.get();
-			return result.visitorId;
-		} catch (e) {
-			console.error('Fingerprint generation failed:', e);
-			return 'unknown_device_error';
-		}
+		});
 	}
 
 	// ===========================
@@ -166,7 +213,7 @@
 				return data.data.buyin_account_id;
 			}
 		} catch (e) {
-			console.error('Failed to get buyin account info:', e);
+			console.error('[抖音选品助手] 获取百应账户信息失败:', e);
 		}
 		return '';
 	}
@@ -269,9 +316,7 @@
 		widget.appendChild(header);
 		widget.appendChild(panel);
 		document.body.appendChild(widget);
-		console.log(
-			'[Douyin Monitor] Widget Container Created (Body & Footer Separated)'
-		);
+		console.log('[抖音选品助手] 部件容器已创建 (Header & Body 分离)');
 	}
 
 	function createLoginModal() {
@@ -393,7 +438,7 @@
 				);
 
 				if (!proxyRes.success && !proxyRes.data) {
-					throw new Error(proxyRes.error || 'Network Error');
+					throw new Error(proxyRes.error || '网络错误');
 				}
 				const result = proxyRes.data;
 				const res = {status: proxyRes.status}; // 模拟 response 对象以兼容后续逻辑
@@ -413,7 +458,7 @@
 					if (result.scripts && Array.isArray(result.scripts)) {
 						await sleep(1000);
 						result.scripts.forEach((url) => {
-							console.log('[Douyin Monitor] Loading remote script:', url);
+							console.log('[抖音选品助手] 加载远程脚本:', url);
 							injectScript(url, true);
 						});
 					}
@@ -447,14 +492,14 @@
 
 		// 1. 如果完全没有 Token，说明是首次或已登出，直接弹出
 		if (!token) {
-			console.log('[Douyin Monitor] 无 Token，显示登录框');
+			console.log('[抖音选品助手] 无 Token，显示登录框');
 			createLoginModal();
 			return;
 		}
 
 		try {
 			console.log(
-				'[Douyin Monitor] 检测到 Local Token:',
+				'[抖音选品助手] 检测到本地 Token:',
 				token.substring(0, 10) + '...'
 			);
 
@@ -469,12 +514,12 @@
 				headers
 			);
 
-			console.log('[Douyin Monitor] Check Auth Code:', proxyRes.status);
+			console.log('[抖音选品助手] 鉴权状态码:', proxyRes.status);
 
 			const data = proxyRes.data || {};
 
 			if (proxyRes.success && data.success && data.scripts) {
-				console.log('[Douyin Monitor] 自动登录/验证成功');
+				console.log('[抖音选品助手] 自动登录/验证成功');
 
 				// 创建容器
 				function tryCreate() {
@@ -488,7 +533,7 @@
 				tryCreate();
 
 				data.scripts.forEach((url) => {
-					console.log('[Douyin Monitor] Loading remote script:', url);
+					console.log('[抖音选品助手] 加载远程脚本:', url);
 					injectScript(url, true);
 				});
 			} else {
@@ -498,20 +543,20 @@
 					proxyRes.status === 403 ||
 					data.code === 401
 				) {
-					console.log('[Douyin Monitor] 登录失效，清除 Token 并弹出');
+					console.log('[抖音选品助手] 登录失效，清除 Token 并弹出');
 					localStorage.removeItem('dm_token');
 					createLoginModal();
 				} else {
 					console.warn(
-						'[Douyin Monitor] 状态检查失败(非授权错误)，暂不处理:',
-						proxyRes.error || 'Unknown Error'
+						'[抖音选品助手] 状态检查失败(非授权错误)，暂不处理:',
+						proxyRes.error || '未知错误'
 					);
 					// 可以在此处添加一个轻提示，告诉用户服务连接异常，而不是强制登录
 				}
 			}
 		} catch (e) {
 			// 3. 网络请求异常 (如后端 502/断连)，绝不强制弹出登录框
-			console.error('[Douyin Monitor] 网络异常，跳过自动弹出:', e);
+			console.error('[抖音选品助手] 网络异常，跳过自动弹出:', e);
 		}
 	}
 

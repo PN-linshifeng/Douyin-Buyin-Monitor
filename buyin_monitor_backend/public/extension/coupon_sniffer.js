@@ -29,7 +29,7 @@
 			return;
 		}
 
-		console.log('[Sniffer] 开始嗅探 ID:', productId);
+		console.log('[达人卷嗅探] 开始嗅探 ID:', productId);
 		const originalText = snifferBtn ? snifferBtn.innerText : '检测达人卷';
 		if (snifferBtn) {
 			snifferBtn.innerText = `正在${originalText}...`;
@@ -44,7 +44,7 @@
 
 		try {
 			// 第一步: 加橱窗
-			console.log('[Sniffer] Step 1: 加橱窗');
+			console.log('[达人卷嗅探] 步骤 1: 加橱窗');
 			const addBody = `product_id=${productId}&item_type=4&pick_first_source=%E7%99%BE%E5%BA%94&pick_second_source=%E9%80%89%E5%93%81%E5%B9%BF%E5%9C%BA&pick_third_source=category_recommend&pick_source_id=`;
 			const addRes = await fetch('/pc/selection/window/pmt/add', {
 				method: 'POST',
@@ -61,7 +61,7 @@
 			}
 
 			// 第二步：请求达人卷列表
-			console.log('[Sniffer] Step 2: 获取达人卷列表');
+			console.log('[达人卷嗅探] 步骤 2: 获取达人卷列表');
 			let resultText = '未找到数据';
 			const timestamp = Date.now();
 			const times = 10;
@@ -87,11 +87,11 @@
 						break; // 找到数据，退出循环
 					}
 				} catch (err) {
-					console.warn(`[Sniffer] 第 ${i} 次尝试失败:`, err);
+					console.warn(`[达人卷嗅探] 第 ${i} 次尝试失败:`, err);
 				}
 
 				if (i < times) {
-					console.log(`[Sniffer] 第 ${i} 次尝试未找到数据，3秒后重试...`);
+					console.log(`[达人卷嗅探] 第 ${i} 次尝试未找到数据，3秒后重试...`);
 					await sleep(3000);
 				}
 			}
@@ -109,7 +109,7 @@
 
 			// 第三步：从橱窗删除
 			await new Promise((r) => setTimeout(r, 10000));
-			console.log('[Sniffer] Step 3: 移除橱窗');
+			console.log('[达人卷嗅探] 步骤 3: 移除橱窗');
 			await fetch('/api/anchor/shop/unbind', {
 				method: 'POST',
 				headers: {
@@ -119,7 +119,7 @@
 				credentials: 'include',
 			});
 		} catch (e) {
-			console.error('[Sniffer] 嗅探失败:', e);
+			console.error('[达人卷嗅探] 嗅探失败:', e);
 			if (snifferBtn) {
 				snifferBtn.innerText = '检测达人卷失败';
 				snifferBtn.classList.remove('dm-btn-warning');

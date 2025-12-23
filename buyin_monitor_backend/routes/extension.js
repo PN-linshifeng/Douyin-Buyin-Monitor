@@ -7,12 +7,10 @@ const {encrypt, decrypt} = require('../utils/crypto');
 router.post('/login', async (req, res) => {
 	const {phone, buyinId, fingerprint} = req.body;
 	if (!phone) {
-		return res.status(400).json({success: false, message: 'Phone is required'});
+		return res.status(400).json({success: false, message: '需要手机号'});
 	}
 	if (!fingerprint) {
-		return res
-			.status(400)
-			.json({success: false, message: 'Fingerprint is required'});
+		return res.status(400).json({success: false, message: '需要设备指纹'});
 	}
 
 	try {
@@ -27,7 +25,7 @@ router.post('/login', async (req, res) => {
 					break;
 				}
 			} catch (e) {
-				console.error('Decryption error for user:', u.id);
+				console.error('用户解密错误 ID:', u.id);
 			}
 		}
 
@@ -56,9 +54,13 @@ router.post('/login', async (req, res) => {
 		} else {
 			// 对比指纹
 			if (foundUser.fingerprint !== fingerprint) {
+				// 严格模式：指纹不匹配则拒绝登录
+				console.warn(
+					`[安全警告] 用户 ${foundUser.id} 指纹不匹配! 库内: ${foundUser.fingerprint}, 请求: ${fingerprint}`
+				);
 				return res.status(403).json({
 					success: false,
-					message: '设备环境发生变化，请使用之前的设备登录',
+					message: '设备环境发生变化，请使用之前的设备登录，或联系管理员重置',
 				});
 			}
 		}
@@ -85,7 +87,7 @@ router.post('/login', async (req, res) => {
 		const baseUrl = `${req.protocol}://${req.get('host')}`;
 		res.json({
 			success: true,
-			message: 'Login successful',
+			message: '登录成功',
 			token: token,
 			scripts: [
 				// `${baseUrl}/extension/main.js`,
@@ -95,8 +97,8 @@ router.post('/login', async (req, res) => {
 			],
 		});
 	} catch (error) {
-		console.error('Login error:', error);
-		res.status(500).json({success: false, message: 'Login failed'});
+		console.error('登录错误:', error);
+		res.status(500).json({success: false, message: '登录失败'});
 	}
 });
 
@@ -104,18 +106,13 @@ router.post('/login', async (req, res) => {
 router.get('/check-auth', async (req, res) => {
 	const authHeader = req.headers.authorization;
 	const fingerprint = req.headers['x-device-fingerprint'];
-	console.log(
-		'[Debug] Check-Auth Header:',
-		authHeader,
-		'Fingerprint:',
-		fingerprint
-	);
+	console.log('[调试] 检查授权 Header:', authHeader, '指纹:', fingerprint);
 
 	if (authHeader) {
 		const token = authHeader.split(' ')[1]; // Bearer <token>
 		try {
 			const payloadStr = decrypt(token);
-			console.log('[Debug] Decrypted Payload:', payloadStr);
+			console.log('[调试] 解密载荷:', payloadStr);
 
 			if (payloadStr) {
 				const payload = JSON.parse(payloadStr);
@@ -139,6 +136,9 @@ router.get('/check-auth', async (req, res) => {
 				// 检查指纹
 				if (dbUser.fingerprint) {
 					if (!fingerprint || dbUser.fingerprint !== fingerprint) {
+						console.warn(
+							`[安全警告] CheckAuth 用户 ${dbUser.id} 指纹不匹配! 库内: ${dbUser.fingerprint}, 请求: ${fingerprint}`
+						);
 						return res.status(403).json({
 							success: false,
 							message: '设备环境发生变化，请重新登录',
@@ -171,7 +171,7 @@ router.get('/check-auth', async (req, res) => {
 				});
 			}
 		} catch (e) {
-			console.error('Token validation failed:', e);
+			console.error('Token 验证失败:', e);
 		}
 	}
 
