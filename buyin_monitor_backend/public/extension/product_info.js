@@ -315,17 +315,13 @@
 			</table>
 			<div style="margin-bottom: 30px; font-size: 13px; color: #ccc; line-height: 1.6;">
 				<div style="margin-bottom:8px;">
-					<strong>直播人均出单数：</strong> ${
-						liveSalesDiff.formula
-					} = <span style="color: #fff; font-weight: bold;">${
-			liveSalesDiff.val
-		}</span>
+					<strong>直播人均出单数：</strong> 
+					<!-- ${'--' || liveSalesDiff.formula} = -->
+					<span style="color: #fff; font-weight: bold;">${liveSalesDiff.val}</span>
 				</div>
-					<strong>直播出单规格：</strong> ${
-						specStat.formula
-					} = <span style="font-weight:bold; color: #fff;">${specStat.val.toFixed(
-			2
-		)}</span>
+					<strong>直播出单规格：</strong>
+					 <!-- ${'--' || specStat.formula} =  -->
+					 <span style="font-weight:bold; color: #fff;">${specStat.val.toFixed(2)}</span>
 				</div>
 			</div>
 		`;
@@ -684,15 +680,12 @@
 	}
 
 	function createFloatingButton() {
-		// 1. URL 检查
 		if (
 			window.location.href.indexOf(
 				'/dashboard/merch-picking-library/merch-promoting'
 			) === -1
-		) {
+		)
 			return;
-		}
-
 		if (document.getElementById('douyin-monitor-btn')) return;
 
 		const btn = document.createElement('button');
@@ -742,8 +735,24 @@
 		append();
 	}
 
-	// 自动尝试创建按钮
-	createFloatingButton();
+	// 监听路由变化
+	if (window.DM_Utils) {
+		window.DM_Utils.watchRouteChange({
+			urlPattern: '/dashboard/merch-picking-library/merch-promoting',
+			onMatch: () => {
+				createFloatingButton();
+			},
+			onUnmatch: () => {
+				const btn = document.getElementById('douyin-monitor-btn');
+				if (btn) btn.remove();
+				const popup = document.getElementById('douyin-monitor-popup');
+				if (popup) popup.remove();
+			},
+		});
+	} else {
+		// 回退方案
+		createFloatingButton();
+	}
 
 	window.ProductInfo = {
 		makeDraggable,

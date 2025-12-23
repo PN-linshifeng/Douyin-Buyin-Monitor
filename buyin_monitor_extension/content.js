@@ -3,7 +3,7 @@
 		'%c [Douyin Monitor] Content Script Loaded v2.0 (Dynamic Loader)',
 		'color: #4eca06; font-weight: bold; font-size: 14px;'
 	);
-
+	const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 	// const BACKEND_URL = 'http://8.148.4.165:3308';
 	const BACKEND_URL = 'http://127.0.0.1:3308';
 
@@ -126,6 +126,7 @@
 
 	try {
 		injectScript(chrome.runtime.getURL('ui.js'));
+		injectScript(chrome.runtime.getURL('utils.js'));
 		injectScript(chrome.runtime.getURL('injected.js'));
 		// 不管是否登录，优先加载主脚本
 		injectScript(`${BACKEND_URL}/extension/main.js`, true);
@@ -410,6 +411,7 @@
 
 					// 动态加载脚本 (强制转为加载本地扩展资源以符合 CSP)
 					if (result.scripts && Array.isArray(result.scripts)) {
+						await sleep(1000);
 						result.scripts.forEach((url) => {
 							console.log('[Douyin Monitor] Loading remote script:', url);
 							injectScript(url, true);

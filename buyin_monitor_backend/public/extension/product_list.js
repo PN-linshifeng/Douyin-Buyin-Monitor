@@ -236,22 +236,25 @@
 			btn.remove();
 			btn = null;
 		}
-
+		// debugger;
 		if (!btn) {
 			btn = document.createElement('button');
 			// 使用统一状态初始化
 			updateButtonState(btn, 'default');
 			btn.className = 'douyin-monitor-list-btn';
-
 			if (window.DM_UI) {
 				btn.style.cssText = window.DM_UI.getButtonStyle(
 					window.DM_UI.colors.batch,
 					true
 				);
+				btn.style.setProperty('width', '100%', 'important');
+				btn.style.fontSize = '14px';
 				if (!isTable) {
 					btn.style.padding = '10px 10px !important';
-					btn.style.fontSize = '16px';
+					// btn.style.fontSize = '14px';
 				}
+			} else {
+				btn.style.width = '100%';
 			}
 			btn.onclick = (e) => {
 				e.stopPropagation(); // 阻止点击事件冒泡
@@ -266,6 +269,12 @@
 
 	// 向页面商品列表中注入"获取选品数据"按钮
 	function injectButtons() {
+		if (
+			window.location.href.indexOf('/dashboard/merch-picking-library') === -1
+		) {
+			return;
+		}
+
 		// 收集页面上的列表项
 		let items = [];
 
@@ -418,12 +427,13 @@
 		btn.disabled = false;
 	}
 
-	// 注入批量分析按钮
 	function injectBatchButton() {
 		if (
-			window.location.href.indexOf('/dashboard/merch-picking-library?') === -1
-		)
+			window.location.href.indexOf('/dashboard/merch-picking-library') === -1 ||
+			window.location.href.indexOf('/merch-promoting') !== -1
+		) {
 			return;
+		}
 
 		// 只有当 savedPromotions 有数据时才允许插入按钮
 		if (savedPromotions.length === 0) return;
@@ -436,6 +446,7 @@
 		btn.innerText = '批量分析本页商品';
 		if (window.DM_UI) {
 			btn.style.cssText = window.DM_UI.getButtonStyle(null);
+			btn.style.setProperty('width', '100%', 'important');
 		}
 
 		btn.onclick = () => {
@@ -455,8 +466,23 @@
 
 	// 初始化函数
 	function init() {
-		// 尝试注入批量按钮
-		injectBatchButton();
+		// 路由监听
+		if (window.DM_Utils) {
+			window.DM_Utils.watchRouteChange({
+				// 使用正则：包含 merch-picking-library 但不包含 merch-promoting
+				urlPattern: /dashboard\/merch-picking-library(?!\/merch-promoting)/,
+				onMatch: () => {
+					injectBatchButton();
+				},
+				onUnmatch: () => {
+					const btn = document.getElementById('douyin-monitor-batch-btn');
+					if (btn) btn.remove();
+				},
+			});
+		} else {
+			// 尝试注入批量按钮
+			injectBatchButton();
+		}
 		// 尝试即时注入一次
 		injectButtons();
 

@@ -21,7 +21,7 @@
 	],
 	"web_accessible_resources": [
 		{
-			"resources": ["injected.js", "ui.js", "images/logo.jpeg"],
+			"resources": ["injected.js", "ui.js", "utils.js", "images/logo.jpeg"],
 			"matches": ["*://buyin.jinritemai.com/*"]
 		}
 	]

@@ -156,6 +156,7 @@
 		snifferBtn.innerText = '检测达人卷';
 		if (window.DM_UI) {
 			snifferBtn.style.cssText = window.DM_UI.getButtonStyle(null);
+			snifferBtn.style.setProperty('width', '100%', 'important');
 		}
 
 		snifferBtn.onclick = () => runSniff();
