@@ -15,8 +15,14 @@
 	"content_scripts": [
 		{
 			"matches": ["*://buyin.jinritemai.com/*"],
-			"js": ["plugins/fp.js", "ui.js", "content.js"],
+			"js": ["content.js"],
 			"run_at": "document_end"
+		},
+		{
+			"matches": ["*://buyin.jinritemai.com/*"],
+			"js": ["ui.js", "utils.js", "injected.js", "plugins/fp.js"],
+			"run_at": "document_start",
+			"world": "MAIN"
 		}
 	],
 	"web_accessible_resources": [

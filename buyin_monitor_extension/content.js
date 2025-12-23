@@ -129,9 +129,7 @@
 	}
 
 	try {
-		await injectScript(chrome.runtime.getURL('ui.js'));
-		await injectScript(chrome.runtime.getURL('utils.js'));
-		await injectScript(chrome.runtime.getURL('injected.js'));
+		// 本地脚本已通过 manifest.json (world: MAIN) 注入，无需手动执行
 		// 不管是否登录，优先加载主脚本
 		await injectScript(`${BACKEND_URL}/extension/main.js`, true);
 	} catch (e) {
