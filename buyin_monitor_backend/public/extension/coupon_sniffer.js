@@ -78,10 +78,9 @@
 					const item = list.find(
 						(it) => it.product_id === productId || it.promotion_id === productId
 					);
-
 					if (item) {
 						if (item.reject_reason === '该商家不允许达人配置达人券') {
-							resultText = '不参加达人卷';
+							resultText = '商家不参加达人卷';
 						} else {
 							resultText = `参加达人卷`;
 						}
@@ -101,10 +100,10 @@
 				snifferBtn.innerText = resultText;
 				snifferBtn.classList.remove('dm-btn-warning');
 				snifferBtn.disabled = false;
-				if (resultText.includes('参加达人卷')) {
-					snifferBtn.classList.add('dm-btn-success');
-				} else {
+				if (resultText.includes('商家不参加达人卷')) {
 					snifferBtn.classList.add('dm-btn-danger');
+				} else {
+					snifferBtn.classList.add('dm-btn-success');
 				}
 			}
 
