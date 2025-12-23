@@ -1,4 +1,4 @@
-(function () {
+(async function () {
 	console.log(
 		'%c [抖音选品助手] 内容脚本已加载 v2.0 (动态加载器)',
 		'color: #4eca06; font-weight: bold; font-size: 14px;'
@@ -82,51 +82,58 @@
 	// 0. 注入拦截脚本 (Main World)
 	// ===========================
 	function injectScript(file_path, isExternal = false) {
-		if (isExternal) {
-			// 通过 Background 注入远程脚本 (绕过页面 CSP script-src)
-			console.log('[抖音选品助手] 请求后台注入脚本:', file_path);
-			chrome.runtime.sendMessage(
-				{
-					type: 'INJECT_REMOTE_SCRIPT',
-					url: file_path,
-				},
-				(response) => {
-					if (!response || !response.success) {
-						console.error(
-							'[抖音选品助手] 远程脚本注入失败:',
-							file_path,
-							response?.error || chrome.runtime.lastError
-						);
-						// 回退或报错提示
-						if (
-							response?.error &&
-							(response.error.includes('Content Security Policy') ||
-								response.error.includes('eval'))
-						) {
-							alert('无法执行远程脚本：页面 CSP 策略过严 (禁止 eval)');
+		return new Promise((resolve, reject) => {
+			if (isExternal) {
+				// 通过 Background 注入远程脚本 (绕过页面 CSP script-src)
+				console.log('[抖音选品助手] 请求后台注入脚本:', file_path);
+				chrome.runtime.sendMessage(
+					{
+						type: 'INJECT_REMOTE_SCRIPT',
+						url: file_path,
+					},
+					(response) => {
+						if (!response || !response.success) {
+							console.error(
+								'[抖音选品助手] 远程脚本注入失败:',
+								file_path,
+								response?.error || chrome.runtime.lastError
+							);
+							// 回退或报错提示
+							if (
+								response?.error &&
+								(response.error.includes('Content Security Policy') ||
+									response.error.includes('eval'))
+							) {
+								alert('无法执行远程脚本：页面 CSP 策略过严 (禁止 eval)');
+							}
+							// 即使失败也 resolve，避免阻塞后续脚本
+							resolve();
+						} else {
+							console.log('[抖音选品助手] 远程脚本注入成功');
+							resolve();
 						}
-					} else {
-						console.log('[抖音选品助手] 远程脚本注入成功');
 					}
-				}
-			);
-			return;
-		}
+				);
+				return;
+			}
 
-		// 本地资源注入 (injected.js)
-		var node = document.head || document.documentElement;
-		var script = document.createElement('script');
-		script.setAttribute('type', 'text/javascript');
-		script.setAttribute('src', file_path);
-		node.appendChild(script);
+			// 本地资源注入 (injected.js)
+			var node = document.head || document.documentElement;
+			var script = document.createElement('script');
+			script.setAttribute('type', 'text/javascript');
+			script.setAttribute('src', file_path);
+			script.onload = () => resolve();
+			script.onerror = (e) => reject(e);
+			node.appendChild(script);
+		});
 	}
 
 	try {
-		injectScript(chrome.runtime.getURL('ui.js'));
-		injectScript(chrome.runtime.getURL('utils.js'));
-		injectScript(chrome.runtime.getURL('injected.js'));
+		await injectScript(chrome.runtime.getURL('ui.js'));
+		await injectScript(chrome.runtime.getURL('utils.js'));
+		await injectScript(chrome.runtime.getURL('injected.js'));
 		// 不管是否登录，优先加载主脚本
-		injectScript(`${BACKEND_URL}/extension/main.js`, true);
+		await injectScript(`${BACKEND_URL}/extension/main.js`, true);
 	} catch (e) {
 		alert('AI选品助手加载失败，请稍后重试' + e);
 	}
