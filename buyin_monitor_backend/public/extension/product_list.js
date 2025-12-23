@@ -105,6 +105,11 @@
 				btn.disabled = false;
 				btn.classList.add('dm-btn-success');
 				break;
+			case 'passed':
+				btn.innerText = '已通过初筛';
+				btn.disabled = false;
+				btn.classList.add('dm-btn-success');
+				break;
 			case 'bad':
 				btn.innerText = '不推荐';
 				btn.disabled = false;

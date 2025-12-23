@@ -178,6 +178,10 @@ const SELECTION_CONFIG = {
 			html: '<span style="color:#25c260; font-weight:bold;">👍 带利润的好品！</span>',
 			status: 'good',
 		},
+		passed: {
+			html: '<span style="color:#25c260; font-weight:bold;">✅ 已通过初筛</span>',
+			status: 'passed',
+		},
 		bad: {
 			html: '<span style="color:#ff4d4f; font-weight:bold;">⚠️ 出单少且亏，请谨慎选择！</span>',
 			status: 'bad',
@@ -390,9 +394,15 @@ function calculateStats(data, days, productPrice, promotionId) {
 	let overallHtml = '';
 	let overallStatus = 'normal';
 
+	// 新增状态：已通过初筛 (直播人均出单数 > 10 && 直播出单规格 > 0)
+	const isPassedInitial = liveSalesDiff > 10 && specDiff > 0;
+
 	if (isD2Green && isE2Green && isSpecGreen) {
 		overallHtml = SELECTION_CONFIG.overall.good.html;
 		overallStatus = SELECTION_CONFIG.overall.good.status;
+	} else if (isPassedInitial) {
+		overallHtml = SELECTION_CONFIG.overall.passed.html;
+		overallStatus = SELECTION_CONFIG.overall.passed.status;
 	} else if (isD2Red && isE2Red && isSpecRed) {
 		overallHtml = SELECTION_CONFIG.overall.bad.html;
 		overallStatus = SELECTION_CONFIG.overall.bad.status;
