@@ -397,14 +397,25 @@
 
 		// 刷新按钮
 		const refreshBtn = document.createElement('button');
+		refreshBtn.className = 'dm-button';
 		refreshBtn.innerText = '↻ 刷新';
-		refreshBtn.style.padding = '4px 8px';
-		refreshBtn.style.fontSize = '12px';
-		refreshBtn.style.backgroundColor = 'rgba(255, 255, 255, 0.1)';
-		refreshBtn.style.border = '1px solid rgba(255, 255, 255, 0.2)';
-		refreshBtn.style.borderRadius = '4px';
-		refreshBtn.style.color = '#e0e0e0';
-		refreshBtn.style.cursor = 'pointer';
+		if (window.DM_UI) {
+			refreshBtn.style.cssText = window.DM_UI.getButtonStyle(
+				'rgba(255, 255, 255, 0.1)'
+			);
+			refreshBtn.style.width = 'auto';
+			refreshBtn.style.padding = '4px 8px !important';
+			refreshBtn.style.fontSize = '12px';
+			refreshBtn.style.border = '1px solid rgba(255, 255, 255, 0.2)';
+		} else {
+			refreshBtn.style.padding = '4px 8px';
+			refreshBtn.style.fontSize = '12px';
+			refreshBtn.style.backgroundColor = 'rgba(255, 255, 255, 0.1)';
+			refreshBtn.style.border = '1px solid rgba(255, 255, 255, 0.2)';
+			refreshBtn.style.borderRadius = '4px';
+			refreshBtn.style.color = '#e0e0e0';
+			refreshBtn.style.cursor = 'pointer';
+		}
 		refreshBtn.onclick = (e) => {
 			e.stopPropagation(); // 防止触发拖拽
 			refreshBtn.innerText = '刷新中...';
@@ -434,14 +445,25 @@
 
 		// 收起/展开内容按钮
 		const toggleBtn = document.createElement('button');
+		toggleBtn.className = 'dm-button';
 		toggleBtn.innerText = '🔼 收起';
-		toggleBtn.style.padding = '4px 8px';
-		toggleBtn.style.fontSize = '12px';
-		toggleBtn.style.backgroundColor = 'rgba(255, 255, 255, 0.1)';
-		toggleBtn.style.border = '1px solid rgba(255, 255, 255, 0.2)';
-		toggleBtn.style.borderRadius = '4px';
-		toggleBtn.style.color = '#e0e0e0';
-		toggleBtn.style.cursor = 'pointer';
+		if (window.DM_UI) {
+			toggleBtn.style.cssText = window.DM_UI.getButtonStyle(
+				'rgba(255, 255, 255, 0.1)'
+			);
+			toggleBtn.style.width = 'auto';
+			toggleBtn.style.padding = '4px 8px !important';
+			toggleBtn.style.fontSize = '12px';
+			toggleBtn.style.border = '1px solid rgba(255, 255, 255, 0.2)';
+		} else {
+			toggleBtn.style.padding = '4px 8px';
+			toggleBtn.style.fontSize = '12px';
+			toggleBtn.style.backgroundColor = 'rgba(255, 255, 255, 0.1)';
+			toggleBtn.style.border = '1px solid rgba(255, 255, 255, 0.2)';
+			toggleBtn.style.borderRadius = '4px';
+			toggleBtn.style.color = '#e0e0e0';
+			toggleBtn.style.cursor = 'pointer';
+		}
 
 		let isExpanded = true;
 		toggleBtn.onclick = (e) => {
@@ -691,20 +713,11 @@
 
 		const btn = document.createElement('button');
 		btn.id = 'douyin-monitor-btn';
+		btn.className = 'dm-button dm-btn-primary';
 		btn.innerText = '获取数据';
-		btn.style.position = 'fixed';
-		// 初始位置
-		btn.style.top = '100px';
-		btn.style.right = '20px';
-
-		btn.style.zIndex = '9999';
-		btn.style.padding = '10px 20px';
-		btn.style.backgroundColor = '#fe2c55';
-		btn.style.color = '#fff';
-		btn.style.border = 'none';
-		btn.style.borderRadius = '4px';
-		btn.style.cursor = 'pointer';
-		btn.style.boxShadow = '0 2px 10px rgba(0,0,0,0.2)';
+		if (window.DM_UI) {
+			btn.style.cssText = window.DM_UI.getButtonStyle(null);
+		}
 
 		// 防止点击拖拽时触发 click
 		let isDrag = false;
@@ -727,12 +740,13 @@
 				console.warn('URL中未找到 commodity_id');
 			}
 		};
-
-		makeDraggable(btn);
-
 		function append() {
-			if (document.body) {
-				document.body.appendChild(btn);
+			const container = document.getElementById('dm-widget-body');
+			if (container) {
+				container.appendChild(btn);
+			} else if (document.body) {
+				// 如果 Widget 还没加载，等一下
+				setTimeout(append, 500);
 			} else {
 				requestAnimationFrame(append);
 			}

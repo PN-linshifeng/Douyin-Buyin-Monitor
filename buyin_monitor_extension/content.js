@@ -125,6 +125,7 @@
 	}
 
 	try {
+		injectScript(chrome.runtime.getURL('ui.js'));
 		injectScript(chrome.runtime.getURL('injected.js'));
 	} catch (e) {
 		console.error('[Douyin Monitor] Injection failed:', e);
@@ -166,6 +167,95 @@
 		return '';
 	}
 
+	function makeElementDraggable(element, handle) {
+		handle = handle || element;
+		let isDragging = false;
+		let startX, startY, initialLeft, initialTop;
+		let moveThreshold = 5;
+		let hasMoved = false;
+
+		handle.style.cursor = 'move';
+
+		handle.onmousedown = function (e) {
+			isDragging = true;
+			hasMoved = false;
+			startX = e.clientX;
+			startY = e.clientY;
+
+			const rect = element.getBoundingClientRect();
+			initialLeft = rect.left;
+			initialTop = rect.top;
+
+			// 切换为具体坐标，防止定位丢失
+			element.style.left = initialLeft + 'px';
+			element.style.top = initialTop + 'px';
+			element.style.right = 'auto';
+			element.style.bottom = 'auto';
+
+			document.addEventListener('mousemove', onMouseMove);
+			document.addEventListener('mouseup', onMouseUp);
+			e.preventDefault();
+		};
+
+		function onMouseMove(e) {
+			if (!isDragging) return;
+			const dx = e.clientX - startX;
+			const dy = e.clientY - startY;
+
+			if (Math.abs(dx) > moveThreshold || Math.abs(dy) > moveThreshold) {
+				hasMoved = true;
+			}
+
+			if (hasMoved) {
+				element.style.left = initialLeft + dx + 'px';
+				element.style.top = initialTop + dy + 'px';
+			}
+		}
+
+		function onMouseUp() {
+			isDragging = false;
+			document.removeEventListener('mousemove', onMouseMove);
+			document.removeEventListener('mouseup', onMouseUp);
+		}
+
+		// 返回是否发生了移动，用于逻辑判断
+		return () => hasMoved;
+	}
+
+	function createWidgetContainer() {
+		if (document.getElementById('dm-main-widget')) return;
+
+		const widget = document.createElement('div');
+		widget.id = 'dm-main-widget';
+
+		// Header (Logo)
+		const header = document.createElement('div');
+		header.id = 'dm-widget-header';
+		const logoImg = document.createElement('img');
+		logoImg.src = chrome.runtime.getURL('images/logo.jpeg');
+		logoImg.alt = 'Logo';
+		header.appendChild(logoImg);
+
+		// Body (Buttons placeholder)
+		const body = document.createElement('div');
+		body.id = 'dm-widget-body';
+
+		// Drag 逻辑
+		const getHasMoved = makeElementDraggable(widget, header);
+
+		// Toggle logic (仅在没有大幅度拖拽时触发)
+		header.onclick = (e) => {
+			if (!getHasMoved()) {
+				body.classList.toggle('collapsed');
+			}
+		};
+
+		widget.appendChild(header);
+		widget.appendChild(body);
+		document.body.appendChild(widget);
+		console.log('[Douyin Monitor] Widget Container Created (Draggable)');
+	}
+
 	function createLoginModal() {
 		if (document.getElementById('douyin-monitor-login')) return;
 
@@ -173,52 +263,84 @@
 		modal.id = 'douyin-monitor-login';
 		modal.style.cssText = `
             position: fixed;
-            top: 20px;
-            right: 20px;
-            width: 300px;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            width: 320px;
             background: #fff;
-            padding: 20px;
-            box-shadow: 0 4px 12px rgba(0,0,0,0.15);
-            border-radius: 8px;
-            z-index: 10001;
-            font-family: sans-serif;
-            border: 1px solid #eee;
+            padding: 30px 20px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.15);
+            border-radius: 16px;
+            z-index: 100001;
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+            border: 1px solid #f0f0f0;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            text-align: center;
         `;
 
-		const title = document.createElement('h3');
-		title.innerText = 'Douyin Monitor 登录';
-		title.style.margin = '0 0 15px 0';
-		title.style.fontSize = '16px';
-		title.style.color = '#333';
+		// Logo Header
+		const logoImg = document.createElement('img');
+		logoImg.src = chrome.runtime.getURL('images/logo.jpeg');
+		logoImg.style.cssText = `
+            width: 80px;
+            height: 80px;
+            border-radius: 50%;
+            margin-bottom: 20px;
+            box-shadow: 0 4px 10px rgba(0,0,0,0.1);
+        `;
+		modal.appendChild(logoImg);
+
+		const title = document.createElement('div');
+		title.innerText = 'AI 选品助手';
+		title.style.cssText = `
+            font-size: 18px;
+            font-weight: bold;
+            color: #333;
+            margin-bottom: 25px;
+        `;
 		modal.appendChild(title);
 
 		const input = document.createElement('input');
 		input.type = 'text';
-		input.placeholder = '输入手机号 (如: 13800138000)';
+		input.placeholder = '输入手机号';
 		input.style.cssText = `
             width: 100%;
-            padding: 8px;
-            margin-bottom: 15px;
+            padding: 12px;
+            margin-bottom: 20px;
             box-sizing: border-box;
-            border: 1px solid #ddd;
-            border-radius: 4px;
+            border: 1px solid #eee;
+            border-radius: 8px;
+            background: #f9f9f9;
+            font-size: 14px;
+            outline: none;
+            transition: border-color 0.3s;
         `;
+		input.onfocus = () => (input.style.borderColor = '#1966ff');
+		input.onblur = () => (input.style.borderColor = '#eee');
 		// 方便测试
 		input.value = '13800138000';
 		modal.appendChild(input);
 
 		const btn = document.createElement('button');
-		btn.innerText = '登录并加载';
-		btn.style.cssText = `
-            width: 100%;
-            padding: 8px;
-            background: #fe2c55;
-            color: #fff;
-            border: none;
-            border-radius: 4px;
-            cursor: pointer;
-            font-weight: bold;
-        `;
+		btn.innerText = '立即登录';
+		if (window.DM_UI) {
+			btn.style.cssText = window.DM_UI.getButtonStyle(
+				window.DM_UI.colors.primary
+			);
+		} else {
+			btn.style.cssText = `
+				width: 100%;
+				padding: 12px;
+				background: #1966ff;
+				color: #fff;
+				border: none;
+				border-radius: 8px;
+				cursor: pointer;
+				font-weight: bold;
+			`;
+		}
 		modal.appendChild(btn);
 
 		const msg = document.createElement('div');
@@ -266,6 +388,9 @@
 						localStorage.setItem('dm_token', result.token);
 					}
 
+					// 创建容器
+					createWidgetContainer();
+
 					// 动态加载脚本 (强制转为加载本地扩展资源以符合 CSP)
 					if (result.scripts && Array.isArray(result.scripts)) {
 						result.scripts.forEach((url) => {
@@ -299,53 +424,75 @@
 
 	// 启动逻辑
 	async function checkLoginState() {
+		const token = localStorage.getItem('dm_token');
+
+		// 1. 如果完全没有 Token，说明是首次或已登出，直接弹出
+		if (!token) {
+			console.log('[Douyin Monitor] 无 Token，显示登录框');
+			createLoginModal();
+			return;
+		}
+
 		try {
-			const token = localStorage.getItem('dm_token');
 			console.log(
-				'[Douyin Monitor] Local Token:',
-				token ? token.substring(0, 10) + '...' : 'null'
+				'[Douyin Monitor] 检测到 Local Token:',
+				token.substring(0, 10) + '...'
 			);
-			const headers = {};
-			if (token) {
-				headers['Authorization'] = `Bearer ${token}`;
-			}
-			headers['x-device-fingerprint'] = await getFingerprint();
 
-			// 在调用 check-auth 时，浏览器会自动带上 localhost:3000 的 cookie (connect.sid)
-			// 前提是浏览器已设置为允许跨站 cookie 或 SameSite 策略允许。
-			// 由于这是 extension content script，且 host_permissions 已添加，fetch 应该能带 cookie。
-			// 但需注意: 如果后端没设置 cors origin allow credentials，可能会失败。
-			// server.js 里的 cors 配置是 { origin: '*', credentials: true }。
-			// origin: '*' 和 credentials: true 在标准这一起是不允许的。
-			// 实际上 nodejs cors 库如果看到 credentials true, origin设为 * 可能不会工作，
-			// 或者需要前端 fetch 手动指定 credentials: 'include'。
+			const headers = {
+				Authorization: `Bearer ${token}`,
+				'x-device-fingerprint': await getFingerprint(),
+			};
 
-			// 我们先尝试 fetch
 			const proxyRes = await sendProxyRequest(
 				`${BACKEND_URL}/api/extension/check-auth`,
 				'GET',
 				headers
 			);
 
-			console.log('[Douyin Monitor] Check Auth Status:', proxyRes.status);
+			console.log('[Douyin Monitor] Check Auth Code:', proxyRes.status);
 
-			// 背景脚本发起的请求会自动处理 Cookie (如果后端设置了 Origin 处理)
 			const data = proxyRes.data || {};
-			if (data.success && data.scripts) {
-				console.log('[Douyin Monitor] 自动登录成功');
+
+			if (proxyRes.success && data.success && data.scripts) {
+				console.log('[Douyin Monitor] 自动登录/验证成功');
+
+				// 创建容器
+				function tryCreate() {
+					if (document.body) {
+						if (document.getElementById('dm-main-widget')) return;
+						createWidgetContainer();
+					} else {
+						setTimeout(tryCreate, 100);
+					}
+				}
+				tryCreate();
+
 				data.scripts.forEach((url) => {
 					console.log('[Douyin Monitor] Loading remote script:', url);
 					injectScript(url, true);
 				});
 			} else {
-				console.log('[Douyin Monitor] 未登录，显示登录框');
-				// 如果本地有 token 但验证失败，说明过期了，清除它
-				if (token) localStorage.removeItem('dm_token');
-				createLoginModal();
+				// 2. 只有在后端明确返回 401/403 或特定的业务失败码时，才视为登录失效
+				if (
+					proxyRes.status === 401 ||
+					proxyRes.status === 403 ||
+					data.code === 401
+				) {
+					console.log('[Douyin Monitor] 登录失效，清除 Token 并弹出');
+					localStorage.removeItem('dm_token');
+					createLoginModal();
+				} else {
+					console.warn(
+						'[Douyin Monitor] 状态检查失败(非授权错误)，暂不处理:',
+						proxyRes.error || 'Unknown Error'
+					);
+					// 可以在此处添加一个轻提示，告诉用户服务连接异常，而不是强制登录
+				}
 			}
 		} catch (e) {
-			console.error('[Douyin Monitor] 自动登录检查失败', e);
-			createLoginModal();
+			// 3. 网络请求异常 (如后端 502/断连)，绝不强制弹出登录框
+			console.error('[Douyin Monitor] 网络异常，跳过自动弹出:', e);
 		}
 	}
 

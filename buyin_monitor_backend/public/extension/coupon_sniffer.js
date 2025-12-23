@@ -113,14 +113,6 @@
 				body: JSON.stringify({promotion_id: promotionId}),
 				credentials: 'include',
 			});
-
-			setTimeout(() => {
-				// if (snifferBtn) {
-				// 	snifferBtn.innerText = originalText;
-				// 	snifferBtn.style.backgroundColor = '#fe2c55';
-				// 	snifferBtn.disabled = false;
-				// }
-			}, 5000);
 		} catch (e) {
 			console.error('[Sniffer] 嗅探失败:', e);
 			if (snifferBtn) {
@@ -144,34 +136,23 @@
 
 		snifferBtn = document.createElement('button');
 		snifferBtn.id = 'douyin-monitor-sniffer-btn';
+		snifferBtn.className = 'dm-button dm-btn-primary';
 		snifferBtn.innerText = '达人卷嗅探';
-		snifferBtn.style.cssText = `
-			position: fixed;
-			bottom: 20px;
-			right: 20px;
-			padding: 12px 24px;
-			background-color: #fe2c55;
-			color: white;
-			border: none;
-			border-radius: 50px;
-			cursor: pointer;
-			font-size: 15px;
-			font-weight: bold;
-			z-index: 99999;
-			box-shadow: 0 4px 15px rgba(254, 44, 85, 0.4);
-			transition: all 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
-			backdrop-filter: blur(10px);
-		`;
-
-		snifferBtn.onmouseenter = () => {
-			snifferBtn.style.transform = 'scale(1.05)';
-		};
-		snifferBtn.onmouseleave = () => {
-			snifferBtn.style.transform = 'scale(1)';
-		};
+		if (window.DM_UI) {
+			snifferBtn.style.cssText = window.DM_UI.getButtonStyle(null);
+		}
 
 		snifferBtn.onclick = () => runSniff();
-		document.body.appendChild(snifferBtn);
+
+		const mountBtn = () => {
+			const container = document.getElementById('dm-widget-body');
+			if (container) {
+				container.appendChild(snifferBtn);
+			} else {
+				setTimeout(mountBtn, 500);
+			}
+		};
+		mountBtn();
 	}
 
 	function removeSnifferButton() {

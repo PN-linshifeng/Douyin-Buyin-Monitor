@@ -80,46 +80,55 @@
 	 * @param {string} type 状态类型: 'analyzing' | 'good' | 'bad' | 'normal' | 'error' | 'default'
 	 */
 	function updateButtonState(btn, type) {
-		if (!btn) return;
+		if (!btn || !window.DM_UI) return;
+
+		const ui = window.DM_UI;
+		// 移除旧的状态类
+		btn.classList.remove(
+			'dm-btn-primary',
+			'dm-btn-success',
+			'dm-btn-warning',
+			'dm-btn-danger',
+			'dm-btn-disabled'
+		);
+		btn.classList.add('dm-button');
 
 		switch (type) {
 			case 'analyzing':
 				btn.innerText = '分析中...';
 				btn.disabled = true;
+				btn.classList.add('dm-btn-warning');
 				break;
 			case 'waiting':
 				btn.innerText = '等待分析';
-				btn.style.backgroundColor = '#b9873d';
 				btn.disabled = true;
+				btn.classList.add('dm-btn-warning');
 				break;
 			case 'good':
-				btn.style.backgroundColor = '#25c260';
 				btn.innerText = '推荐';
 				btn.disabled = false;
+				btn.classList.add('dm-btn-success');
 				break;
 			case 'bad':
-				btn.style.backgroundColor = '#ff4d4f';
 				btn.innerText = '不推荐';
 				btn.disabled = false;
+				btn.classList.add('dm-btn-danger');
 				break;
 			case 'normal':
 				btn.innerText = '一般';
-				// 恢复默认颜色或保持现有逻辑(原逻辑中一般不改背景色，但如果之前被改为红绿，这里应该恢复吗？
-				// 原逻辑 else 分支并未重置背景色。为显式起见，建议保持原样或设置为默认土豪金)
-				// 既然是状态更新，最好显式设回默认，避免状态残留
-				btn.style.backgroundColor = '#b9873d';
 				btn.disabled = false;
+				btn.classList.add('dm-btn-primary');
 				break;
 			case 'error':
 				btn.innerText = '❎分析失败';
-				btn.style.backgroundColor = '#999';
 				btn.disabled = false;
+				btn.classList.add('dm-btn-disabled');
 				break;
 			case 'default':
 			default:
 				btn.innerText = '获取选品数据';
-				btn.style.backgroundColor = '#b9873d';
 				btn.disabled = false;
+				btn.classList.add('dm-btn-primary');
 				break;
 		}
 	}
@@ -238,38 +247,48 @@
 			updateButtonState(btn, 'default');
 			btn.className = 'douyin-monitor-list-btn';
 
-			// 基础样式
-			let cssText = `
-                display: block;
-                background-color: #b9873d;
-                color: white;
-                border: none;
-                border-radius: 4px;
-                cursor: pointer;
-                font-size: 14px; 
-                z-index: 100;
-                position: relative; 
-            `;
-
-			// 根据视图类型调整样式
-			if (isTable) {
-				// 表格视图样式：稍微紧凑一点
-				cssText += `
-					margin: 5px 0;
-					padding: 6px 12px !important;
-					width: 100%;
-				`;
+			if (window.DM_UI) {
+				btn.style.cssText = window.DM_UI.getButtonStyle(
+					window.DM_UI.colors.batch,
+					true
+				);
+				if (!isTable) {
+					btn.style.padding = '10px 10px !important';
+					btn.style.fontSize = '16px';
+				}
 			} else {
-				// 卡片(Wrapper)视图样式：原样
-				cssText += `
-					margin: 5px auto;
-					padding: 10px 10px !important;
-					width: 100%;
-					font-size: 16px;
+				// Fallback
+				let cssText = `
+					display: block;
+					background-color: #b9873d;
+					color: white;
+					border: none;
+					border-radius: 4px;
+					cursor: pointer;
+					font-size: 14px; 
+					z-index: 100;
+					position: relative; 
 				`;
-			}
 
-			btn.style.cssText = cssText;
+				// 根据视图类型调整样式
+				if (isTable) {
+					// 表格视图样式：稍微紧凑一点
+					cssText += `
+						margin: 5px 0;
+						padding: 6px 12px !important;
+						width: 100%;
+					`;
+				} else {
+					// 卡片(Wrapper)视图样式：原样
+					cssText += `
+						margin: 5px auto;
+						padding: 10px 10px !important;
+						width: 100%;
+						font-size: 16px;
+					`;
+				}
+				btn.style.cssText = cssText;
+			}
 
 			btn.onclick = (e) => {
 				e.stopPropagation(); // 阻止点击事件冒泡
@@ -450,27 +469,47 @@
 
 		const btn = document.createElement('button');
 		btn.id = 'douyin-monitor-batch-btn';
+		btn.className = 'dm-button dm-btn-success';
 		btn.innerText = '批量分析本页商品';
-		btn.style.cssText = `
-            position: fixed;
-            top: 80px;
-            right: 20px;
-            padding: 8px 16px;
-            background-color: #25c260;
-            color: white;
-            border: none;
-            border-radius: 4px;
-            cursor: pointer;
-            font-size: 14px;
-            z-index: 9999;
-            box-shadow: 0 2px 8px rgba(0,0,0,0.2);
-        `;
+		if (window.DM_UI) {
+			btn.style.cssText = window.DM_UI.getButtonStyle(null);
+			btn.style.position = 'fixed';
+			btn.style.top = '80px';
+			btn.style.right = '20px';
+			btn.style.width = 'auto'; // 覆盖 getButtonStyle 中的 width: 100%
+			btn.style.padding = '8px 16px !important';
+			btn.style.fontSize = '14px';
+			btn.style.zIndex = '9999';
+		} else {
+			btn.style.cssText = `
+				position: fixed;
+				top: 80px;
+				right: 20px;
+				padding: 8px 16px;
+				background-color: #25c260;
+				color: white;
+				border: none;
+				border-radius: 4px;
+				cursor: pointer;
+				font-size: 14px;
+				z-index: 9999;
+				box-shadow: 0 2px 8px rgba(0,0,0,0.2);
+			`;
+		}
 
 		btn.onclick = () => {
 			handleBatchAnalyze(btn);
 		};
 
-		document.body.appendChild(btn);
+		const mountBtn = () => {
+			const container = document.getElementById('dm-widget-body');
+			if (container) {
+				container.appendChild(btn);
+			} else {
+				setTimeout(mountBtn, 500);
+			}
+		};
+		mountBtn();
 	}
 
 	// 初始化函数
