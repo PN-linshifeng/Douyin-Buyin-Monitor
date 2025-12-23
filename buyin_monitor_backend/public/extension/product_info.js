@@ -397,29 +397,21 @@
 
 		// 刷新按钮
 		const refreshBtn = document.createElement('button');
-		refreshBtn.className = 'dm-button';
+		refreshBtn.className = 'dm-button dm-btn-primary';
 		refreshBtn.innerText = '↻ 刷新';
 		if (window.DM_UI) {
-			refreshBtn.style.cssText = window.DM_UI.getButtonStyle(
-				'rgba(255, 255, 255, 0.1)'
-			);
+			refreshBtn.style.cssText = window.DM_UI.getButtonStyle(null);
 			refreshBtn.style.width = 'auto';
 			refreshBtn.style.padding = '4px 8px !important';
 			refreshBtn.style.fontSize = '12px';
-			refreshBtn.style.border = '1px solid rgba(255, 255, 255, 0.2)';
-		} else {
-			refreshBtn.style.padding = '4px 8px';
-			refreshBtn.style.fontSize = '12px';
-			refreshBtn.style.backgroundColor = 'rgba(255, 255, 255, 0.1)';
-			refreshBtn.style.border = '1px solid rgba(255, 255, 255, 0.2)';
-			refreshBtn.style.borderRadius = '4px';
-			refreshBtn.style.color = '#e0e0e0';
-			refreshBtn.style.cursor = 'pointer';
 		}
+
 		refreshBtn.onclick = (e) => {
 			e.stopPropagation(); // 防止触发拖拽
-			refreshBtn.innerText = '刷新中...';
+			refreshBtn.innerText = '分析中...';
 			refreshBtn.disabled = true;
+			refreshBtn.classList.remove('dm-btn-primary');
+			refreshBtn.classList.add('dm-btn-warning');
 			analyzeAndShow(promotionId, decision_enter_from);
 		};
 		refreshBtn.onmousedown = (e) => e.stopPropagation(); // 防止触发拖拽
@@ -455,14 +447,6 @@
 			toggleBtn.style.padding = '4px 8px !important';
 			toggleBtn.style.fontSize = '12px';
 			toggleBtn.style.border = '1px solid rgba(255, 255, 255, 0.2)';
-		} else {
-			toggleBtn.style.padding = '4px 8px';
-			toggleBtn.style.fontSize = '12px';
-			toggleBtn.style.backgroundColor = 'rgba(255, 255, 255, 0.1)';
-			toggleBtn.style.border = '1px solid rgba(255, 255, 255, 0.2)';
-			toggleBtn.style.borderRadius = '4px';
-			toggleBtn.style.color = '#e0e0e0';
-			toggleBtn.style.cursor = 'pointer';
 		}
 
 		let isExpanded = true;
@@ -733,9 +717,13 @@
 				'decision_enter_from'
 			);
 			btn.innerText = '分析中...';
+			btn.classList.add('dm-btn-warning');
+			btn.classList.remove('dm-btn-primary');
 			if (!isDrag && promotionId) {
 				await analyzeAndShow(promotionId, decision_enter_from);
 				btn.innerText = '获取数据';
+				btn.classList.remove('dm-btn-warning');
+				btn.classList.add('dm-btn-primary');
 			} else if (!promotionId) {
 				console.warn('URL中未找到 commodity_id');
 			}

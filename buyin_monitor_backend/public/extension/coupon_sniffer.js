@@ -21,7 +21,6 @@
 	 * 核心嗅探逻辑
 	 */
 	async function runSniff(productId, promotionId) {
-		//
 		productId = productId || getQueryParam('product_id');
 		promotionId = promotionId || getQueryParam('commodity_id');
 
@@ -31,17 +30,23 @@
 		}
 
 		console.log('[Sniffer] 开始嗅探 ID:', productId);
-		const originalText = snifferBtn ? snifferBtn.innerText : '达人卷嗅探';
+		const originalText = snifferBtn ? snifferBtn.innerText : '检测达人卷';
 		if (snifferBtn) {
-			snifferBtn.innerText = '正在嗅探...';
+			snifferBtn.innerText = `正在${originalText}...`;
 			snifferBtn.disabled = true;
+			snifferBtn.classList.remove(
+				'dm-btn-primary',
+				'dm-btn-success',
+				'dm-btn-danger'
+			);
+			snifferBtn.classList.add('dm-btn-warning');
 		}
 
 		try {
 			// 第一步: 加橱窗
 			console.log('[Sniffer] Step 1: 加橱窗');
 			const addBody = `product_id=${productId}&item_type=4&pick_first_source=%E7%99%BE%E5%BA%94&pick_second_source=%E9%80%89%E5%93%81%E5%B9%BF%E5%9C%BA&pick_third_source=category_recommend&pick_source_id=`;
-			await fetch('/pc/selection/window/pmt/add', {
+			const addRes = await fetch('/pc/selection/window/pmt/add', {
 				method: 'POST',
 				headers: {
 					'Content-Type': 'application/x-www-form-urlencoded; charset=UTF-8',
@@ -49,36 +54,36 @@
 				body: addBody,
 				credentials: 'include',
 			});
+			const addResData = await addRes.json();
+			if (addResData.code !== 0) {
+				alert(addResData.msg);
+				throw new Error(addResData.msg);
+			}
 
 			// 第二步：请求达人卷列表
 			console.log('[Sniffer] Step 2: 获取达人卷列表');
 			let resultText = '未找到数据';
-			await sleep(10000);
-			const times = 5;
+			const timestamp = Date.now();
+			const times = 10;
 			for (let i = 1; i <= times; i++) {
-				// if (snifferBtn) snifferBtn.innerText = `获取中(${i}/3)...`;
-
 				try {
-					const timestamp = Date.now();
 					const listUrl = `/api/buyin/marketing/anchor_coupon/promotion_list?_bid=mcenter_buyin&_luckybag_bid=buyin_luckybag&_=${timestamp}&s=485333&promotion_name_or_id=${productId}&page=1&size=10&search_type=0&need_channel=true`;
 
-					const listRes = await fetch(listUrl, {
+					const res = await fetch(listUrl, {
 						method: 'GET',
 						credentials: 'include',
 					});
-					const listData = await listRes.json();
+					const resData = await res.json();
+					const list = resData?.data?.data || [];
+					const item = list.find(
+						(it) => it.product_id === productId || it.promotion_id === productId
+					);
 
-					if (listData?.data?.data?.length > 0) {
-						const item =
-							listData.data.data.find(
-								(d) =>
-									d.product_id === promotionId || d.promotion_id === promotionId
-							) || listData.data.data[0];
-
+					if (item) {
 						if (item.reject_reason === '该商家不允许达人配置达人券') {
-							resultText = item.reject_reason;
+							resultText = '不参加达人卷';
 						} else {
-							resultText = `达人卷，价格：${item.discount_price_display}，佣金率：${item.cos_ratio_display}`;
+							resultText = `参加达人卷`;
 						}
 						break; // 找到数据，退出循环
 					}
@@ -87,23 +92,24 @@
 				}
 
 				if (i < times) {
-					console.log(`[Sniffer] 第 ${i} 次尝试未找到数据，7秒后重试...`);
+					console.log(`[Sniffer] 第 ${i} 次尝试未找到数据，3秒后重试...`);
 					await sleep(3000);
 				}
 			}
 
 			if (snifferBtn) {
 				snifferBtn.innerText = resultText;
-				snifferBtn.style.backgroundColor = resultText.includes('价格')
-					? '#25c260'
-					: '#ffa39e';
-			} else {
-				console.log('[Sniffer] 结果:', resultText);
+				snifferBtn.classList.remove('dm-btn-warning');
+				snifferBtn.disabled = false;
+				if (resultText.includes('参加达人卷')) {
+					snifferBtn.classList.add('dm-btn-success');
+				} else {
+					snifferBtn.classList.add('dm-btn-danger');
+				}
 			}
-			// return;
 
 			// 第三步：从橱窗删除
-			await new Promise((r) => setTimeout(r, 3000));
+			await new Promise((r) => setTimeout(r, 10000));
 			console.log('[Sniffer] Step 3: 移除橱窗');
 			await fetch('/api/anchor/shop/unbind', {
 				method: 'POST',
@@ -116,12 +122,15 @@
 		} catch (e) {
 			console.error('[Sniffer] 嗅探失败:', e);
 			if (snifferBtn) {
-				snifferBtn.innerText = '嗅探失败';
+				snifferBtn.innerText = '检测达人卷失败';
+				snifferBtn.classList.remove('dm-btn-warning');
+				snifferBtn.classList.add('dm-btn-danger');
 				snifferBtn.disabled = false;
 				setTimeout(() => {
 					if (snifferBtn) {
 						snifferBtn.innerText = originalText;
-						snifferBtn.style.backgroundColor = '#fe2c55';
+						snifferBtn.classList.remove('dm-btn-danger');
+						snifferBtn.classList.add('dm-btn-primary');
 					}
 				}, 3000);
 			}
@@ -132,12 +141,19 @@
 	 * 创建按钮
 	 */
 	function createSnifferButton() {
+		if (
+			window.location.href.indexOf(
+				'/dashboard/merch-picking-library/merch-promoting'
+			) === -1
+		) {
+			return;
+		}
 		if (snifferBtn) return;
 
 		snifferBtn = document.createElement('button');
 		snifferBtn.id = 'douyin-monitor-sniffer-btn';
 		snifferBtn.className = 'dm-button dm-btn-primary';
-		snifferBtn.innerText = '达人卷嗅探';
+		snifferBtn.innerText = '检测达人卷';
 		if (window.DM_UI) {
 			snifferBtn.style.cssText = window.DM_UI.getButtonStyle(null);
 		}

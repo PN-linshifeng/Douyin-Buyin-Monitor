@@ -95,12 +95,8 @@
 
 		switch (type) {
 			case 'analyzing':
-				btn.innerText = '分析中...';
-				btn.disabled = true;
-				btn.classList.add('dm-btn-warning');
-				break;
 			case 'waiting':
-				btn.innerText = '等待分析';
+				btn.innerText = type === 'analyzing' ? '分析中...' : '等待分析';
 				btn.disabled = true;
 				btn.classList.add('dm-btn-warning');
 				break;
@@ -256,40 +252,7 @@
 					btn.style.padding = '10px 10px !important';
 					btn.style.fontSize = '16px';
 				}
-			} else {
-				// Fallback
-				let cssText = `
-					display: block;
-					background-color: #b9873d;
-					color: white;
-					border: none;
-					border-radius: 4px;
-					cursor: pointer;
-					font-size: 14px; 
-					z-index: 100;
-					position: relative; 
-				`;
-
-				// 根据视图类型调整样式
-				if (isTable) {
-					// 表格视图样式：稍微紧凑一点
-					cssText += `
-						margin: 5px 0;
-						padding: 6px 12px !important;
-						width: 100%;
-					`;
-				} else {
-					// 卡片(Wrapper)视图样式：原样
-					cssText += `
-						margin: 5px auto;
-						padding: 10px 10px !important;
-						width: 100%;
-						font-size: 16px;
-					`;
-				}
-				btn.style.cssText = cssText;
 			}
-
 			btn.onclick = (e) => {
 				e.stopPropagation(); // 阻止点击事件冒泡
 				handleGetSelectionData(btn);
@@ -469,7 +432,7 @@
 
 		const btn = document.createElement('button');
 		btn.id = 'douyin-monitor-batch-btn';
-		btn.className = 'dm-button';
+		btn.className = 'dm-button dm-btn-primary';
 		btn.innerText = '批量分析本页商品';
 		if (window.DM_UI) {
 			btn.style.cssText = window.DM_UI.getButtonStyle(null);

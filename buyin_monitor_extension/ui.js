@@ -96,6 +96,7 @@
                     align-items: center;
                     justify-content: center;
                     animation: dm-breathe 3s infinite ease-in-out;
+                    z-index: 100;
                 }
                 @keyframes dm-breathe {
                     0%, 100% { 
@@ -115,22 +116,38 @@
                     height: 100%;
                     object-fit: cover;
                 }
-                #dm-widget-body {
+
+                /* 容器面板 */
+                #dm-widget-panel {
                     background: white;
                     border-radius: 12px;
-                    padding: 24px;
                     box-shadow: 0 8px 25px rgba(0,0,0,0.15);
                     display: flex;
                     flex-direction: column;
-                    gap: 8px;
-                    min-width: 180px;
+                    min-width: 200px;
                     transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
                     opacity: 1;
-                    transform: translateX(0);
+                    transform: translateY(0);
                     border: 1px solid #f0f0f0;
+                    overflow: hidden;
                 }
-                #dm-widget-body.collapsed {
-                    display: none;
+                #dm-widget-panel.collapsed {
+                    // display: none;
+                }
+
+                #dm-widget-body {
+                    padding: 24px;
+                    display: flex;
+                    flex-direction: column;
+                    gap: 10px;
+                    
+                }
+
+                #dm-widget-footer {
+                    padding: 12px 24px;
+                    background: #fafafa;
+                    border-top: 1px solid #f5f5f5;
+                    
                 }
                 
                 /* Override buttons inside widget body to match width */

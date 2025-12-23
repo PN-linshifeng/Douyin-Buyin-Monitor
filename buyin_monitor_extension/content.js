@@ -231,7 +231,7 @@
 		const widget = document.createElement('div');
 		widget.id = 'dm-main-widget';
 
-		// Header (Logo)
+		// Header (The circular logo button)
 		const header = document.createElement('div');
 		header.id = 'dm-widget-header';
 		const logoImg = document.createElement('img');
@@ -239,9 +239,21 @@
 		logoImg.alt = 'Logo';
 		header.appendChild(logoImg);
 
+		// Panel (The container with Body, Footer)
+		const panel = document.createElement('div');
+		panel.id = 'dm-widget-panel';
+		panel.classList.add('collapsed');
+
 		// Body (Buttons placeholder)
 		const body = document.createElement('div');
 		body.id = 'dm-widget-body';
+
+		// Footer (Wechat info placeholder)
+		const footer = document.createElement('div');
+		footer.id = 'dm-widget-footer';
+
+		panel.appendChild(body);
+		panel.appendChild(footer);
 
 		// Drag 逻辑
 		const getHasMoved = makeElementDraggable(widget, header);
@@ -249,14 +261,16 @@
 		// Toggle logic (仅在没有大幅度拖拽时触发)
 		header.onclick = (e) => {
 			if (!getHasMoved()) {
-				body.classList.toggle('collapsed');
+				panel.classList.toggle('collapsed');
 			}
 		};
 
 		widget.appendChild(header);
-		widget.appendChild(body);
+		widget.appendChild(panel);
 		document.body.appendChild(widget);
-		console.log('[Douyin Monitor] Widget Container Created (Draggable)');
+		console.log(
+			'[Douyin Monitor] Widget Container Created (Body & Footer Separated)'
+		);
 	}
 
 	function createLoginModal() {

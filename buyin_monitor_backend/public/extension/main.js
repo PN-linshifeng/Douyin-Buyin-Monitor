@@ -3,15 +3,13 @@
 		'%c [Douyin Monitor] Main Script Loaded',
 		'color: #1966ff; font-weight: bold;'
 	);
-
-	function addWechatInfo() {
-		// 定义统一的 HTML 内容
-		const wechatHtml = `
-            <div class="dm-wechat-info" style="margin-top: 5px; padding-top: 10px; border-top: 1px dashed #eee; font-size: 13px; color: #666; width: 100%; text-align: center; display: block;">
-                微信：xxxx
+	// 定义统一的 HTML 内容
+	const wechatHtml = `
+            <div class="dm-wechat-info" style=" font-size: 13px; color: #666; width: 100%; text-align: center; display: block;">
+                微信：LiangDesign8
             </div>
         `;
-
+	function addWechatInfo() {
 		// 1. 查找登录容器
 		const loginModal = document.getElementById('douyin-monitor-login');
 		if (loginModal && !loginModal.querySelector('.dm-wechat-info')) {
@@ -22,14 +20,14 @@
 			console.log('[Main] Logged wechat into login modal');
 		}
 
-		// 2. 查找按钮容器
-		const widgetBody = document.getElementById('dm-widget-body');
-		if (widgetBody && !widgetBody.querySelector('.dm-wechat-info')) {
+		// 2. 查找面板页脚
+		const widgetFooter = document.getElementById('dm-widget-footer');
+		if (widgetFooter && !widgetFooter.querySelector('.dm-wechat-info')) {
 			const container = document.createElement('div');
 			container.className = 'dm-wechat-info';
 			container.innerHTML = wechatHtml;
-			widgetBody.appendChild(container);
-			console.log('[Main] Logged wechat into widget body');
+			widgetFooter.appendChild(container);
+			console.log('[Main] Logged wechat into widget footer');
 		}
 	}
 
