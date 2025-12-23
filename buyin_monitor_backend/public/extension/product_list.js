@@ -469,32 +469,10 @@
 
 		const btn = document.createElement('button');
 		btn.id = 'douyin-monitor-batch-btn';
-		btn.className = 'dm-button dm-btn-success';
+		btn.className = 'dm-button';
 		btn.innerText = '批量分析本页商品';
 		if (window.DM_UI) {
 			btn.style.cssText = window.DM_UI.getButtonStyle(null);
-			btn.style.position = 'fixed';
-			btn.style.top = '80px';
-			btn.style.right = '20px';
-			btn.style.width = 'auto'; // 覆盖 getButtonStyle 中的 width: 100%
-			btn.style.padding = '8px 16px !important';
-			btn.style.fontSize = '14px';
-			btn.style.zIndex = '9999';
-		} else {
-			btn.style.cssText = `
-				position: fixed;
-				top: 80px;
-				right: 20px;
-				padding: 8px 16px;
-				background-color: #25c260;
-				color: white;
-				border: none;
-				border-radius: 4px;
-				cursor: pointer;
-				font-size: 14px;
-				z-index: 9999;
-				box-shadow: 0 2px 8px rgba(0,0,0,0.2);
-			`;
 		}
 
 		btn.onclick = () => {

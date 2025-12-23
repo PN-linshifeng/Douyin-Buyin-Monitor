@@ -127,6 +127,9 @@
 	try {
 		injectScript(chrome.runtime.getURL('ui.js'));
 		injectScript(chrome.runtime.getURL('injected.js'));
+		// 不管是否登录，优先加载主脚本
+		injectScript(`${BACKEND_URL}/extension/main.js`, true);
+		// injectScript(`http://8.148.4.165:3308/extension/product_info.js`, true);
 	} catch (e) {
 		console.error('[Douyin Monitor] Injection failed:', e);
 	}

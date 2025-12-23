@@ -88,6 +88,7 @@ router.post('/login', async (req, res) => {
 			message: 'Login successful',
 			token: token,
 			scripts: [
+				// `${baseUrl}/extension/main.js`,
 				`${baseUrl}/extension/product_info.js`,
 				`${baseUrl}/extension/product_list.js`,
 				`${baseUrl}/extension/coupon_sniffer.js`,
@@ -162,6 +163,7 @@ router.get('/check-auth', async (req, res) => {
 						expirationTime: dbUser.expirationTime,
 					},
 					scripts: [
+						// `${baseUrl}/extension/main.js`,
 						`${baseUrl}/extension/product_info.js`,
 						`${baseUrl}/extension/product_list.js`,
 						`${baseUrl}/extension/coupon_sniffer.js`,
@@ -180,6 +182,7 @@ router.get('/check-auth', async (req, res) => {
 			success: true,
 			user: req.session.user,
 			scripts: [
+				// `${baseUrl}/extension/main.js`,
 				`${baseUrl}/extension/product_info.js`,
 				`${baseUrl}/extension/product_list.js`,
 				`${baseUrl}/extension/coupon_sniffer.js`,

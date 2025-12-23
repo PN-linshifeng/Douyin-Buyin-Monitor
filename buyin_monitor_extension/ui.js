@@ -118,12 +118,12 @@
                 #dm-widget-body {
                     background: white;
                     border-radius: 12px;
-                    padding: 10px;
+                    padding: 24px;
                     box-shadow: 0 8px 25px rgba(0,0,0,0.15);
                     display: flex;
                     flex-direction: column;
                     gap: 8px;
-                    width: 180px;
+                    min-width: 180px;
                     transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
                     opacity: 1;
                     transform: translateX(0);
