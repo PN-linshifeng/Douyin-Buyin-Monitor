@@ -1,6 +1,7 @@
 const express = require('express');
 const router = express.Router();
 const User = require('../models/User');
+const LoginLog = require('../models/LoginLog');
 const {encrypt, decrypt} = require('../utils/crypto');
 
 // API: 扩展端登录
@@ -35,6 +36,9 @@ router.post('/login', async (req, res) => {
 				.json({success: false, message: '用户不存在或未授权'});
 		}
 
+		// 保存旧指纹快照
+		const currentDbFingerprint = foundUser.fingerprint;
+
 		// 检查过期时间
 		if (foundUser.expirationTime) {
 			const now = new Date();
@@ -58,6 +62,26 @@ router.post('/login', async (req, res) => {
 				console.warn(
 					`[安全警告] 用户 ${foundUser.id} 指纹不匹配! 库内: ${foundUser.fingerprint}, 请求: ${fingerprint}`
 				);
+				try {
+					const clientIp =
+						req.headers['x-forwarded-for'] ||
+						req.socket.remoteAddress ||
+						req.ip;
+					const userAgent = req.headers['user-agent'];
+					await LoginLog.create({
+						userId: foundUser.id,
+						phone: foundUser.phone,
+						buyinId: foundUser.buyinId,
+						fingerprint: fingerprint,
+						oldFingerprint: currentDbFingerprint,
+						ip:
+							typeof clientIp === 'string' ? clientIp.split(',')[0] : clientIp,
+						userAgent: userAgent || '',
+						status: 'MISMATCH',
+					});
+				} catch (e) {
+					console.error('Failed to log mismatch:', e);
+				}
 				return res.status(403).json({
 					success: false,
 					message: '设备环境发生变化，请使用之前的设备登录，或联系管理员重置',
@@ -73,6 +97,27 @@ router.post('/login', async (req, res) => {
 
 		if (updated) {
 			await foundUser.save();
+		}
+
+		// Record Login Log
+		try {
+			const clientIp =
+				req.headers['x-forwarded-for'] || req.socket.remoteAddress || req.ip;
+			const userAgent = req.headers['user-agent'];
+
+			await LoginLog.create({
+				userId: foundUser.id,
+				phone: foundUser.phone, // Store encrypted snapshot
+				buyinId: foundUser.buyinId,
+				fingerprint: fingerprint, // The one from request (now bound)
+				oldFingerprint: currentDbFingerprint,
+				ip: typeof clientIp === 'string' ? clientIp.split(',')[0] : clientIp,
+				userAgent: userAgent || '',
+				status: 'SUCCESS',
+			});
+		} catch (logErr) {
+			console.error('Failed to log login:', logErr);
+			// Non-blocking
 		}
 
 		// 生成 Token

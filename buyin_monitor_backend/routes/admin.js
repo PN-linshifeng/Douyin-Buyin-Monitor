@@ -4,6 +4,7 @@ const User = require('../models/User');
 const Admin = require('../models/Admin');
 const Config = require('../models/Config');
 const RenewalLog = require('../models/RenewalLog');
+const LoginLog = require('../models/LoginLog');
 const {encrypt, decrypt} = require('../utils/crypto');
 
 // Middleware: 检查管理员权限
@@ -261,6 +262,59 @@ router.get('/renewal-logs', requireAdmin, async (req, res) => {
 		res
 			.status(500)
 			.json({success: false, message: 'Fetch renewal logs failed'});
+	}
+});
+
+// 7.7 获取登录日志
+router.get('/login-logs', requireAdmin, async (req, res) => {
+	const {search} = req.query;
+
+	try {
+		// Fetch logs (limit to last 500)
+		const logs = await LoginLog.findAll({
+			order: [['createdAt', 'DESC']],
+			limit: 500,
+		});
+
+		let formattedLogs = logs.map((log) => {
+			let displayPhone = log.phone;
+			try {
+				displayPhone = decrypt(log.phone);
+			} catch (e) {}
+
+			// Truncate UA for display
+			let ua = log.userAgent || '';
+			if (ua.length > 50) ua = ua.substring(0, 50) + '...';
+
+			return {
+				id: log.id,
+				userId: log.userId,
+				phone: displayPhone,
+				buyinId: log.buyinId,
+				fingerprint: log.fingerprint,
+				oldFingerprint: log.oldFingerprint,
+				ip: log.ip,
+				userAgent: ua,
+				fullUserAgent: log.userAgent, // keep full for tooltip if needed
+				createdAt: log.createdAt,
+			};
+		});
+
+		// Filter in memory if search is present
+		if (search) {
+			const lowerSearch = search.toLowerCase();
+			formattedLogs = formattedLogs.filter((log) => {
+				const phoneMatch = log.phone && log.phone.includes(lowerSearch);
+				const buyinMatch =
+					log.buyinId && log.buyinId.toLowerCase().includes(lowerSearch);
+				return phoneMatch || buyinMatch;
+			});
+		}
+
+		res.json({success: true, data: formattedLogs});
+	} catch (e) {
+		console.error('Fetch login logs error:', e);
+		res.status(500).json({success: false, message: 'Fetch login logs failed'});
 	}
 });
 

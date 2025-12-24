@@ -2,6 +2,7 @@ const sequelize = require('./database/connection');
 const User = require('./models/User');
 const Admin = require('./models/Admin');
 const RenewalLog = require('./models/RenewalLog');
+const LoginLog = require('./models/LoginLog');
 const fs = require('fs');
 const path = require('path');
 
@@ -10,7 +11,7 @@ const ADMIN_FILE = path.join(__dirname, 'admin.json');
 
 async function initDB() {
 	try {
-		await sequelize.sync({force: false});
+		await sequelize.sync({alter: true});
 		console.log('Database synced.');
 
 		// Check if data exists

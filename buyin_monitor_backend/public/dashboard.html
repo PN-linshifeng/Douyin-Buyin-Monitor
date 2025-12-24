@@ -14,8 +14,8 @@
     }
 
     .container {
-      max-width: 1600px;
-      margin: 0 auto;
+      max-width: 100%;
+      margin: 0 px;
       background: white;
       padding: 20px;
       border-radius: 8px;
@@ -220,9 +220,43 @@
     <div class="tabs">
       <div class="tab-item active" onclick="switchTab('users')">用户管理</div>
       <div class="tab-item" onclick="switchTab('logs')">续费记录</div>
+      <div class="tab-item" onclick="switchTab('login_logs')">登录日志</div>
     </div>
     <!-- Tab 1: Users -->
     <div id="tab-users" class="tab-content active">
+      <!-- Search Area -->
+      <div style="background: #f9f9f9; padding: 15px; border-radius: 4px; margin-bottom: 20px;">
+        <div style="display: flex; flex-wrap: wrap; gap: 15px; align-items: center;">
+          <!-- Row 1 -->
+          <div style="display: flex; align-items: center; gap: 5px;">
+            <label>手机号:</label>
+            <input type="text" id="filterPhone" placeholder="手机号"
+                   style="padding: 5px; width: 120px; border:1px solid #ddd; border-radius:4px;">
+          </div>
+          <div style="display: flex; align-items: center; gap: 5px;">
+            <label>Buyin ID:</label>
+            <input type="text" id="filterBuyinId" placeholder="Buyin ID"
+                   style="padding: 5px; width: 120px; border:1px solid #ddd; border-radius:4px;">
+          </div>
+          <!-- Row 2 Dates -->
+          <div style="display: flex; align-items: center; gap: 5px;">
+            <label>创建时间:</label>
+            <input type="date" id="filterCreateStart" style="padding: 5px; border:1px solid #ddd; border-radius:4px;">
+            <span>-</span>
+            <input type="date" id="filterCreateEnd" style="padding: 5px; border:1px solid #ddd; border-radius:4px;">
+          </div>
+          <div style="display: flex; align-items: center; gap: 5px;">
+            <label>过期时间:</label>
+            <input type="date" id="filterExpireStart" style="padding: 5px; border:1px solid #ddd; border-radius:4px;">
+            <span>-</span>
+            <input type="date" id="filterExpireEnd" style="padding: 5px; border:1px solid #ddd; border-radius:4px;">
+          </div>
+          <div style="display: flex; gap: 10px;">
+            <button onclick="applyUserFilter()" class="btn btn-primary">搜索</button>
+            <button onclick="resetUserFilter()" class="btn btn-default">重置</button>
+          </div>
+        </div>
+      </div>
       <div style="margin-bottom: 15px;">
         <button onclick="openAddModal()" class="btn btn-primary">+ 新增用户</button>
       </div>
@@ -266,6 +300,32 @@
         </thead>
         <tbody>
           <!-- Logs Data -->
+        </tbody>
+      </table>
+    </div>
+    <!-- Tab 3: Login Logs -->
+    <div id="tab-login_logs" class="tab-content">
+      <div class="search-bar">
+        <input type="text" id="loginLogSearchInput" placeholder="搜索手机号 或 Buyin ID...">
+        <button onclick="loadLoginLogs()" class="btn btn-primary">搜索</button>
+        <button onclick="resetLoginLogSearch()" class="btn btn-default">重置</button>
+      </div>
+      <table id="loginLogTable">
+        <thead>
+          <tr>
+            <th>ID</th>
+            <th>登录时间</th>
+            <th>用户ID</th>
+            <th>手机号</th>
+            <th>Buyin ID</th>
+            <th>IP地址</th>
+            <th>User Agent</th>
+            <th>旧指纹</th>
+            <th>新指纹</th>
+          </tr>
+        </thead>
+        <tbody>
+          <!-- Data -->
         </tbody>
       </table>
     </div>
@@ -331,6 +391,7 @@
   <script>
     let currentMode = 'add'; // 'add' or 'edit'
     let editingId = null;
+    let allUsersCache = []; // Cache for filtering
 
     // Init
     checkAuth();
@@ -341,16 +402,17 @@
       document.querySelectorAll('.tab-content').forEach(el => el.classList.remove('active'));
 
       // Activate
-      const navItem = Array.from(document.querySelectorAll('.tab-item')).find(el => el.innerText === (tabName === 'users' ? '用户管理' : '续费记录'));
+      let tabTitle = '用户管理';
+      if (tabName === 'logs') tabTitle = '续费记录';
+      if (tabName === 'login_logs') tabTitle = '登录日志';
+
+      const navItem = Array.from(document.querySelectorAll('.tab-item')).find(el => el.innerText === tabTitle);
       if (navItem) navItem.classList.add('active');
 
       document.getElementById('tab-' + tabName).classList.add('active');
 
-      if (tabName === 'logs') {
-        // Auto load logs if empty or forced? For now just load.
-        // If search input has value (from jump), use it, otherwise normal load
-        loadLogs();
-      }
+      if (tabName === 'logs') loadLogs();
+      if (tabName === 'login_logs') loadLoginLogs();
     }
 
     function jumpToLogs(phone) {
@@ -398,8 +460,63 @@
       const res = await fetch('/api/admin/users');
       const result = await res.json();
       if (result.success) {
-        renderTable(result.data);
+        allUsersCache = result.data;
+        applyUserFilter();
       }
+    }
+
+    function applyUserFilter() {
+      const phone = document.getElementById('filterPhone').value.trim();
+      const buyinId = document.getElementById('filterBuyinId').value.trim().toLowerCase();
+
+      const createStart = document.getElementById('filterCreateStart').value;
+      const createEnd = document.getElementById('filterCreateEnd').value;
+      const expireStart = document.getElementById('filterExpireStart').value;
+      const expireEnd = document.getElementById('filterExpireEnd').value;
+
+      // Helper date check
+      const checkDate = (itemDateStr, startStr, endStr) => {
+        if (!itemDateStr) return false; // If target date is missing, can't be in range
+        const d = new Date(itemDateStr).getTime();
+        if (startStr) {
+          const start = new Date(startStr + 'T00:00:00').getTime();
+          if (d < start) return false;
+        }
+        if (endStr) {
+          const end = new Date(endStr + 'T23:59:59').getTime();
+          if (d > end) return false;
+        }
+        return true;
+      };
+
+      const filtered = allUsersCache.filter(u => {
+        // Text Search
+        if (phone && (!u.phone || !u.phone.includes(phone))) return false;
+        if (buyinId && (!u.buyinId || !u.buyinId.toLowerCase().includes(buyinId))) return false;
+
+        // Date Range
+        if ((createStart || createEnd) && !checkDate(u.createTime, createStart, createEnd)) return false;
+
+        // Expiration
+        if (expireStart || expireEnd) {
+          if (!u.expirationTime) return false; // If filtering by date, exclude "Permanent" (null/empty)
+          if (!checkDate(u.expirationTime, expireStart, expireEnd)) return false;
+        }
+
+        return true;
+      });
+
+      renderTable(filtered);
+    }
+
+    function resetUserFilter() {
+      document.getElementById('filterPhone').value = '';
+      document.getElementById('filterBuyinId').value = '';
+      document.getElementById('filterCreateStart').value = '';
+      document.getElementById('filterCreateEnd').value = '';
+      document.getElementById('filterExpireStart').value = '';
+      document.getElementById('filterExpireEnd').value = '';
+      applyUserFilter();
     }
 
     function renderTable(users) {
@@ -658,6 +775,72 @@
     document.getElementById('logSearchInput').addEventListener('keypress', function (e) {
       if (e.key === 'Enter') {
         loadLogs();
+      }
+    });
+
+    // --- Login Logs Logic ---
+    function resetLoginLogSearch() {
+      document.getElementById('loginLogSearchInput').value = '';
+      loadLoginLogs();
+    }
+
+    async function loadLoginLogs() {
+      const search = document.getElementById('loginLogSearchInput').value.trim();
+      let url = '/api/admin/login-logs';
+      if (search) {
+        url += `?search=${encodeURIComponent(search)}`;
+      }
+
+      try {
+        const res = await fetch(url);
+        const result = await res.json();
+        if (result.success) {
+          renderLoginLogTable(result.data);
+        }
+      } catch (e) {
+        console.error(e);
+      }
+    }
+
+    function renderLoginLogTable(logs) {
+      const tbody = document.querySelector('#loginLogTable tbody');
+      tbody.innerHTML = '';
+
+      if (!logs || logs.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="9" style="text-align:center;color:#999;">暂无日志</td></tr>';
+        return;
+      }
+
+      logs.forEach(log => {
+        const tr = document.createElement('tr');
+
+        let oldFp = log.oldFingerprint ? log.oldFingerprint.substring(0, 8) + '...' : '-';
+        let newFp = log.fingerprint ? log.fingerprint.substring(0, 8) + '...' : '-';
+
+        // Highlight logic
+        let newFpStyle = '';
+        if (log.oldFingerprint && log.fingerprint && log.oldFingerprint !== log.fingerprint) {
+          newFpStyle = 'color: #ff4d4f; font-weight: bold;';
+        }
+
+        tr.innerHTML = `
+            <td>${log.id}</td>
+            <td>${formatDate(log.createdAt)}</td>
+            <td>${log.userId || '-'}</td>
+            <td>${log.phone}</td>
+            <td>${log.buyinId || '-'}</td>
+            <td>${log.ip || '-'}</td>
+            <td title="${log.fullUserAgent || ''}">${log.userAgent || '-'}</td>
+            <td title="${log.oldFingerprint || ''}">${oldFp}</td>
+            <td title="${log.fingerprint || ''}" style="${newFpStyle}">${newFp}</td>
+        `;
+        tbody.appendChild(tr);
+      });
+    }
+
+    document.getElementById('loginLogSearchInput').addEventListener('keypress', function (e) {
+      if (e.key === 'Enter') {
+        loadLoginLogs();
       }
     });
 
