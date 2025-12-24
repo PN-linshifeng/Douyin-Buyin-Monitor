@@ -20,6 +20,27 @@
 	/**
 	 * 核心嗅探逻辑
 	 */
+	/**
+	 * 检查商品是否在达人卷列表中
+	 */
+	async function checkProductInCouponList(productId) {
+		const timestamp = Date.now();
+		const listUrl = `/api/buyin/marketing/anchor_coupon/promotion_list?_bid=mcenter_buyin&_luckybag_bid=buyin_luckybag&_=${timestamp}&s=485333&promotion_name_or_id=${productId}&page=1&size=10&search_type=0&need_channel=true`;
+
+		const res = await fetch(listUrl, {
+			method: 'GET',
+			credentials: 'include',
+		});
+		const resData = await res.json();
+		const list = resData?.data?.data || [];
+		return list.find(
+			(it) => it.product_id === productId || it.promotion_id === productId
+		);
+	}
+
+	/**
+	 * 核心嗅探逻辑
+	 */
 	async function runSniff(productId, promotionId, btnElement) {
 		productId = productId || getQueryParam('product_id');
 		promotionId = promotionId || getQueryParam('commodity_id');
@@ -33,18 +54,53 @@
 
 		console.log('[达人卷嗅探] 开始嗅探 ID:', productId);
 		const originalText = targetBtn ? targetBtn.innerText : '检测达人卷';
-		if (targetBtn) {
-			targetBtn.innerText = `正在${originalText}...`;
-			targetBtn.disabled = true;
+
+		// 更新 UI 状态 helper
+		const updateBtn = (text, type) => {
+			if (!targetBtn) return;
+			targetBtn.innerText = text;
+			targetBtn.disabled = false;
 			targetBtn.classList.remove(
 				'dm-btn-primary',
 				'dm-btn-success',
-				'dm-btn-danger'
+				'dm-btn-danger',
+				'dm-btn-warning'
 			);
-			targetBtn.classList.add('dm-btn-warning');
-		}
+			if (type === 'loading') {
+				targetBtn.disabled = true;
+				targetBtn.classList.add('dm-btn-warning');
+			} else if (type === 'success') {
+				targetBtn.classList.add('dm-btn-success');
+			} else if (type === 'error') {
+				targetBtn.classList.add('dm-btn-danger');
+			} else {
+				targetBtn.classList.add('dm-btn-primary');
+			}
+		};
+
+		updateBtn(`正在${originalText}...`, 'loading');
 
 		try {
+			// 步骤 0: 先检查是否已经在列表中
+			console.log('[达人卷嗅探] 步骤 0: 预检查达人卷列表');
+			try {
+				const existingItem = await checkProductInCouponList(productId);
+				if (existingItem) {
+					let resultText = '参加达人卷';
+					let type = 'success';
+					if (existingItem.reject_reason === '该商家不允许达人配置达人券') {
+						resultText = '商家不参加达人卷';
+						type = 'error';
+					}
+					console.log('[达人卷嗅探] 预检查命中:', resultText);
+					updateBtn(resultText, type);
+					return; // 直接结束
+				}
+			} catch (err) {
+				console.warn('[达人卷嗅探] 预检查失败，继续执行常规流程:', err);
+			}
+
+			// 如果不在列表中，执行原本的 1-2-3 流程
 			// 第一步: 加橱窗
 			console.log('[达人卷嗅探] 步骤 1: 加橱窗');
 			const addBody = `product_id=${productId}&item_type=4&pick_first_source=%E7%99%BE%E5%BA%94&pick_second_source=%E9%80%89%E5%93%81%E5%B9%BF%E5%9C%BA&pick_third_source=category_recommend&pick_source_id=`;
@@ -58,34 +114,33 @@
 			});
 			const addResData = await addRes.json();
 			if (addResData.code !== 0) {
-				alert(addResData.msg);
-				throw new Error(addResData.msg);
+				// 如果已经在橱窗里但刚才没查到（罕见），或者其他错误
+				// 这里如果是"商品已在橱窗"，其实也可以继续去查一次，但为了保险起见，如果添加失败主要还是报错
+				if (addResData.msg && addResData.msg.includes('橱窗')) {
+					// 可能是"商品已在橱窗中"，这种情况下继续往下执行 Step 2
+					console.warn('[达人卷嗅探] 加橱窗提示:', addResData.msg);
+				} else {
+					alert(addResData.msg);
+					throw new Error(addResData.msg);
+				}
 			}
 
-			// 第二步：请求达人卷列表
-			console.log('[达人卷嗅探] 步骤 2: 获取达人卷列表');
+			// 第二步：请求达人卷列表 (循环检查)
+			console.log('[达人卷嗅探] 步骤 2: 获取达人卷列表 (循环)');
 			let resultText = '未找到数据';
-			const timestamp = Date.now();
+			let found = false;
 			const times = 10;
+
 			for (let i = 1; i <= times; i++) {
 				try {
-					const listUrl = `/api/buyin/marketing/anchor_coupon/promotion_list?_bid=mcenter_buyin&_luckybag_bid=buyin_luckybag&_=${timestamp}&s=485333&promotion_name_or_id=${productId}&page=1&size=10&search_type=0&need_channel=true`;
-
-					const res = await fetch(listUrl, {
-						method: 'GET',
-						credentials: 'include',
-					});
-					const resData = await res.json();
-					const list = resData?.data?.data || [];
-					const item = list.find(
-						(it) => it.product_id === productId || it.promotion_id === productId
-					);
+					const item = await checkProductInCouponList(productId);
 					if (item) {
 						if (item.reject_reason === '该商家不允许达人配置达人券') {
 							resultText = '商家不参加达人卷';
 						} else {
 							resultText = `参加达人卷`;
 						}
+						found = true;
 						break; // 找到数据，退出循环
 					}
 				} catch (err) {
@@ -99,18 +154,16 @@
 			}
 
 			if (targetBtn) {
-				targetBtn.innerText = resultText;
-				targetBtn.classList.remove('dm-btn-warning');
-				targetBtn.disabled = false;
-				if (resultText.includes('商家不参加达人卷')) {
-					targetBtn.classList.add('dm-btn-danger');
-				} else {
-					targetBtn.classList.add('dm-btn-success');
-				}
+				updateBtn(
+					resultText,
+					resultText.includes('商家不参加达人卷') || !found
+						? 'error'
+						: 'success'
+				);
 			}
 
 			// 第三步：从橱窗删除
-			await new Promise((r) => setTimeout(r, 10000));
+			await new Promise((r) => setTimeout(r, 1000)); // 稍微等一下再删，避免操作过快
 			console.log('[达人卷嗅探] 步骤 3: 移除橱窗');
 			await fetch('/api/anchor/shop/unbind', {
 				method: 'POST',
@@ -122,23 +175,10 @@
 			});
 		} catch (e) {
 			console.error('[达人卷嗅探] 嗅探失败:', e);
-			if (targetBtn) {
-				targetBtn.innerText = '检测达人卷失败';
-				targetBtn.classList.remove('dm-btn-warning');
-				targetBtn.classList.add('dm-btn-danger');
-				targetBtn.disabled = false;
-				setTimeout(() => {
-					if (targetBtn) {
-						targetBtn.innerText = originalText;
-						targetBtn.classList.remove('dm-btn-danger');
-						if (originalText === '检测达人卷') {
-							targetBtn.classList.add('dm-btn-primary');
-						} else {
-							// 保留现有样式或恢复
-						}
-					}
-				}, 3000);
-			}
+			updateBtn('检测达人卷失败', 'error');
+			setTimeout(() => {
+				updateBtn(originalText, 'primary'); // 恢复
+			}, 3000);
 		}
 	}
 
