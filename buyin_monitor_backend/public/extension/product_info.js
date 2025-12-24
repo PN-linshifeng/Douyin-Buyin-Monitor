@@ -413,6 +413,66 @@
 		refreshBtn.onmousedown = (e) => e.stopPropagation(); // 防止触发拖拽
 		actionsDiv.appendChild(refreshBtn);
 
+		// 检测达人卷按钮
+		const snifferBtn = document.createElement('button');
+		snifferBtn.className = 'dm-button dm-btn-primary';
+		snifferBtn.innerText = '检测达人卷';
+		if (window.DM_UI) {
+			snifferBtn.style.cssText = window.DM_UI.getButtonStyle(null);
+			snifferBtn.style.width = 'auto';
+			snifferBtn.style.padding = '4px 8px !important';
+			snifferBtn.style.fontSize = '12px';
+			snifferBtn.style.marginLeft = '10px';
+		}
+
+		snifferBtn.onclick = (e) => {
+			e.stopPropagation();
+			if (!window.CouponSniffer) {
+				alert('达人卷嗅探模块未加载');
+				return;
+			}
+
+			// 从结果中查找7天数据
+			const sevenDayIndex = ranges.indexOf(7);
+			let targetProductId = null;
+			let targetPromotionId = promotionId;
+
+			if (sevenDayIndex !== -1 && results[sevenDayIndex]) {
+				const sevenDayData = results[sevenDayIndex].data;
+				// 尝试解析 product_id, 根据实际接口返回结构调整
+				// 假设它在顶层或者 data 层
+				targetProductId =
+					sevenDayData?.product_id || sevenDayData?.data?.product_id;
+
+				// 如果接口返回了 promotion_id 也优先使用
+				const apiPromotionId =
+					sevenDayData?.promotion_id || sevenDayData?.data?.promotion_id;
+				if (apiPromotionId) {
+					targetPromotionId = apiPromotionId;
+				}
+			}
+
+			// 如果没找到 product_id，尝试使用 promotionId 作为备选，或者提示
+			if (!targetProductId) {
+				// 有时候 promotion_id 和 product_id 是一样的，但这取决于业务
+				// 这里我们可以尝试让 CouponSniffer 自己去处理缺省情况，或者我们就传 promotionId
+				// 但根据需求，我们要从接口获取。如果获取不到，至少 log 一下
+				console.warn(
+					'未能在7天数据中找到 product_id, 将尝试使用 promotionId:',
+					promotionId
+				);
+				targetProductId = promotionId;
+			}
+
+			window.CouponSniffer.runSniff(
+				targetProductId,
+				targetPromotionId,
+				snifferBtn
+			);
+		};
+		snifferBtn.onmousedown = (e) => e.stopPropagation();
+		actionsDiv.appendChild(snifferBtn);
+
 		// 头部关闭按钮
 		const headerCloseBtn = document.createElement('button');
 		headerCloseBtn.innerText = '✕';

@@ -20,9 +20,11 @@
 	/**
 	 * 核心嗅探逻辑
 	 */
-	async function runSniff(productId, promotionId) {
+	async function runSniff(productId, promotionId, btnElement) {
 		productId = productId || getQueryParam('product_id');
 		promotionId = promotionId || getQueryParam('commodity_id');
+
+		const targetBtn = btnElement || snifferBtn;
 
 		if (!productId) {
 			alert('未能在 URL 中找到商品 ID');
@@ -30,16 +32,16 @@
 		}
 
 		console.log('[达人卷嗅探] 开始嗅探 ID:', productId);
-		const originalText = snifferBtn ? snifferBtn.innerText : '检测达人卷';
-		if (snifferBtn) {
-			snifferBtn.innerText = `正在${originalText}...`;
-			snifferBtn.disabled = true;
-			snifferBtn.classList.remove(
+		const originalText = targetBtn ? targetBtn.innerText : '检测达人卷';
+		if (targetBtn) {
+			targetBtn.innerText = `正在${originalText}...`;
+			targetBtn.disabled = true;
+			targetBtn.classList.remove(
 				'dm-btn-primary',
 				'dm-btn-success',
 				'dm-btn-danger'
 			);
-			snifferBtn.classList.add('dm-btn-warning');
+			targetBtn.classList.add('dm-btn-warning');
 		}
 
 		try {
@@ -96,14 +98,14 @@
 				}
 			}
 
-			if (snifferBtn) {
-				snifferBtn.innerText = resultText;
-				snifferBtn.classList.remove('dm-btn-warning');
-				snifferBtn.disabled = false;
+			if (targetBtn) {
+				targetBtn.innerText = resultText;
+				targetBtn.classList.remove('dm-btn-warning');
+				targetBtn.disabled = false;
 				if (resultText.includes('商家不参加达人卷')) {
-					snifferBtn.classList.add('dm-btn-danger');
+					targetBtn.classList.add('dm-btn-danger');
 				} else {
-					snifferBtn.classList.add('dm-btn-success');
+					targetBtn.classList.add('dm-btn-success');
 				}
 			}
 
@@ -120,69 +122,23 @@
 			});
 		} catch (e) {
 			console.error('[达人卷嗅探] 嗅探失败:', e);
-			if (snifferBtn) {
-				snifferBtn.innerText = '检测达人卷失败';
-				snifferBtn.classList.remove('dm-btn-warning');
-				snifferBtn.classList.add('dm-btn-danger');
-				snifferBtn.disabled = false;
+			if (targetBtn) {
+				targetBtn.innerText = '检测达人卷失败';
+				targetBtn.classList.remove('dm-btn-warning');
+				targetBtn.classList.add('dm-btn-danger');
+				targetBtn.disabled = false;
 				setTimeout(() => {
-					if (snifferBtn) {
-						snifferBtn.innerText = originalText;
-						snifferBtn.classList.remove('dm-btn-danger');
-						snifferBtn.classList.add('dm-btn-primary');
+					if (targetBtn) {
+						targetBtn.innerText = originalText;
+						targetBtn.classList.remove('dm-btn-danger');
+						if (originalText === '检测达人卷') {
+							targetBtn.classList.add('dm-btn-primary');
+						} else {
+							// 保留现有样式或恢复
+						}
 					}
 				}, 3000);
 			}
-		}
-	}
-
-	/**
-	 * 创建按钮
-	 */
-	function createSnifferButton() {
-		if (
-			window.location.href.indexOf(
-				'/dashboard/merch-picking-library/merch-promoting'
-			) === -1
-		) {
-			return;
-		}
-		if (snifferBtn) return;
-
-		snifferBtn = document.createElement('button');
-		snifferBtn.id = 'douyin-monitor-sniffer-btn';
-		snifferBtn.className = 'dm-button dm-btn-primary';
-		snifferBtn.innerText = '检测达人卷';
-		if (window.DM_UI) {
-			snifferBtn.style.cssText = window.DM_UI.getButtonStyle(null);
-			snifferBtn.style.setProperty('width', '100%', 'important');
-		}
-
-		snifferBtn.onclick = () => runSniff();
-
-		const mountBtn = () => {
-			const container = document.getElementById('dm-widget-body');
-			if (container) {
-				container.appendChild(snifferBtn);
-			} else {
-				setTimeout(mountBtn, 500);
-			}
-		};
-		mountBtn();
-	}
-
-	function removeSnifferButton() {
-		if (snifferBtn) {
-			snifferBtn.remove();
-			snifferBtn = null;
-		}
-	}
-
-	function checkPage() {
-		if (window.location.href.indexOf(TARGET_PAGE) !== -1) {
-			createSnifferButton();
-		} else {
-			removeSnifferButton();
 		}
 	}
 
@@ -190,7 +146,4 @@
 	window.CouponSniffer = {
 		runSniff,
 	};
-
-	checkPage();
-	setInterval(checkPage, 2000);
 })();
