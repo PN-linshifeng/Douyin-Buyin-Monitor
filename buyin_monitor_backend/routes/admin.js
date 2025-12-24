@@ -293,7 +293,7 @@ router.get('/login-logs', requireAdmin, async (req, res) => {
 				buyinId: log.buyinId,
 				fingerprint: log.fingerprint,
 				oldFingerprint: log.oldFingerprint,
-				ip: log.ip,
+				ip: log.ip ? log.ip.replace(/^::ffff:/, '') : '-',
 				userAgent: ua,
 				fullUserAgent: log.userAgent, // keep full for tooltip if needed
 				createdAt: log.createdAt,

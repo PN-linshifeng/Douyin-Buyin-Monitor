@@ -63,10 +63,14 @@ router.post('/login', async (req, res) => {
 					`[安全警告] 用户 ${foundUser.id} 指纹不匹配! 库内: ${foundUser.fingerprint}, 请求: ${fingerprint}`
 				);
 				try {
-					const clientIp =
+					const clientIpRaw =
 						req.headers['x-forwarded-for'] ||
 						req.socket.remoteAddress ||
 						req.ip;
+					const clientIp =
+						typeof clientIpRaw === 'string'
+							? clientIpRaw.split(',')[0].replace(/^::ffff:/, '')
+							: clientIpRaw;
 					const userAgent = req.headers['user-agent'];
 					await LoginLog.create({
 						userId: foundUser.id,
@@ -74,8 +78,7 @@ router.post('/login', async (req, res) => {
 						buyinId: foundUser.buyinId,
 						fingerprint: fingerprint,
 						oldFingerprint: currentDbFingerprint,
-						ip:
-							typeof clientIp === 'string' ? clientIp.split(',')[0] : clientIp,
+						ip: clientIp,
 						userAgent: userAgent || '',
 						status: 'MISMATCH',
 					});
@@ -101,8 +104,12 @@ router.post('/login', async (req, res) => {
 
 		// Record Login Log
 		try {
-			const clientIp =
+			const clientIpRaw =
 				req.headers['x-forwarded-for'] || req.socket.remoteAddress || req.ip;
+			const clientIp =
+				typeof clientIpRaw === 'string'
+					? clientIpRaw.split(',')[0].replace(/^::ffff:/, '')
+					: clientIpRaw;
 			const userAgent = req.headers['user-agent'];
 
 			await LoginLog.create({
@@ -111,7 +118,7 @@ router.post('/login', async (req, res) => {
 				buyinId: foundUser.buyinId,
 				fingerprint: fingerprint, // The one from request (now bound)
 				oldFingerprint: currentDbFingerprint,
-				ip: typeof clientIp === 'string' ? clientIp.split(',')[0] : clientIp,
+				ip: clientIp,
 				userAgent: userAgent || '',
 				status: 'SUCCESS',
 			});

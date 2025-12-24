@@ -319,7 +319,7 @@
             <th>手机号</th>
             <th>Buyin ID</th>
             <th>IP地址</th>
-            <th>User Agent</th>
+            <th width="150px">User Agent</th>
             <th>旧指纹</th>
             <th>新指纹</th>
           </tr>
@@ -830,7 +830,7 @@
             <td>${log.phone}</td>
             <td>${log.buyinId || '-'}</td>
             <td>${log.ip || '-'}</td>
-            <td title="${log.fullUserAgent || ''}">${log.userAgent || '-'}</td>
+            <td title="${log.fullUserAgent || ''}" style="max-width: 150px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">${log.userAgent || '-'}</td>
             <td title="${log.oldFingerprint || ''}">${oldFp}</td>
             <td title="${log.fingerprint || ''}" style="${newFpStyle}">${newFp}</td>
         `;
