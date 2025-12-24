@@ -39,6 +39,16 @@
 	}
 
 	/**
+	 * 根据 item 判断结果文案和类型
+	 */
+	function getResultFromItem(item) {
+		if (item.reject_reason === '该商家不允许达人配置达人券') {
+			return {text: '商家不参加达人卷', type: 'error'};
+		}
+		return {text: '参加达人卷', type: 'success'};
+	}
+
+	/**
 	 * 核心嗅探逻辑
 	 */
 	async function runSniff(productId, promotionId, btnElement) {
@@ -86,14 +96,9 @@
 			try {
 				const existingItem = await checkProductInCouponList(productId);
 				if (existingItem) {
-					let resultText = '参加达人卷';
-					let type = 'success';
-					if (existingItem.reject_reason === '该商家不允许达人配置达人券') {
-						resultText = '商家不参加达人卷';
-						type = 'error';
-					}
-					console.log('[达人卷嗅探] 预检查命中:', resultText);
-					updateBtn(resultText, type);
+					const {text, type} = getResultFromItem(existingItem);
+					console.log('[达人卷嗅探] 预检查命中:', text);
+					updateBtn(text, type);
 					return; // 直接结束
 				}
 			} catch (err) {
@@ -128,6 +133,7 @@
 			// 第二步：请求达人卷列表 (循环检查)
 			console.log('[达人卷嗅探] 步骤 2: 获取达人卷列表 (循环)');
 			let resultText = '未找到数据';
+			let resultType = 'error'; // 默认是失败/未找到
 			let found = false;
 			const times = 10;
 
@@ -135,11 +141,9 @@
 				try {
 					const item = await checkProductInCouponList(productId);
 					if (item) {
-						if (item.reject_reason === '该商家不允许达人配置达人券') {
-							resultText = '商家不参加达人卷';
-						} else {
-							resultText = `参加达人卷`;
-						}
+						const res = getResultFromItem(item);
+						resultText = res.text;
+						resultType = res.type;
 						found = true;
 						break; // 找到数据，退出循环
 					}
@@ -154,12 +158,7 @@
 			}
 
 			if (targetBtn) {
-				updateBtn(
-					resultText,
-					resultText.includes('商家不参加达人卷') || !found
-						? 'error'
-						: 'success'
-				);
+				updateBtn(resultText, found ? resultType : 'error');
 			}
 
 			// 第三步：从橱窗删除
