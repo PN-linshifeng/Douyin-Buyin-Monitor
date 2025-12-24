@@ -3,6 +3,7 @@ const router = express.Router();
 const User = require('../models/User');
 const Admin = require('../models/Admin');
 const Config = require('../models/Config');
+const RenewalLog = require('../models/RenewalLog');
 const {encrypt, decrypt} = require('../utils/crypto');
 
 // Middleware: 检查管理员权限
@@ -184,12 +185,82 @@ router.post('/users/:id/renew', requireAdmin, async (req, res) => {
 		if (!user)
 			return res.status(404).json({success: false, message: 'User not found'});
 
+		const oldExpirationTime = user.expirationTime; // Save old time for log
+
 		user.expirationTime = expirationTime;
 		await user.save();
+
+		// Create Renewal Log
+		try {
+			await RenewalLog.create({
+				adminUsername: req.session.admin
+					? req.session.admin.username
+					: 'Unknown',
+				targetUserId: user.id,
+				targetPhone: user.phone, // Encrypted snapshot
+				targetBuyinId: user.buyinId, // Snapshot
+				oldExpirationTime: oldExpirationTime || '',
+				newExpirationTime: expirationTime,
+			});
+		} catch (logError) {
+			console.error('Failed to create renewal log:', logError);
+			// Do not fail the request if logging fails, but log it to console
+		}
 
 		res.json({success: true, message: 'Renew successful', data: user});
 	} catch (e) {
 		res.status(500).json({success: false, message: 'Renew failed'});
+	}
+});
+
+// 7.6 获取续费日志
+router.get('/renewal-logs', requireAdmin, async (req, res) => {
+	const {search} = req.query;
+
+	try {
+		// Fetch logs (limit to last 500 for performance)
+		const logs = await RenewalLog.findAll({
+			order: [['createdAt', 'DESC']],
+			limit: 500,
+		});
+
+		let formattedLogs = logs.map((log) => {
+			let displayPhone = log.targetPhone;
+			try {
+				displayPhone = decrypt(log.targetPhone);
+			} catch (e) {}
+
+			return {
+				id: log.id,
+				adminUsername: log.adminUsername,
+				targetUserId: log.targetUserId,
+				targetPhone: displayPhone,
+				targetBuyinId: log.targetBuyinId,
+				oldExpirationTime: log.oldExpirationTime,
+				newExpirationTime: log.newExpirationTime,
+				createdAt: log.createdAt,
+			};
+		});
+
+		// Filter in memory if search is present
+		if (search) {
+			const lowerSearch = search.toLowerCase();
+			formattedLogs = formattedLogs.filter((log) => {
+				const phoneMatch =
+					log.targetPhone && log.targetPhone.includes(lowerSearch);
+				const buyinMatch =
+					log.targetBuyinId &&
+					log.targetBuyinId.toLowerCase().includes(lowerSearch);
+				return phoneMatch || buyinMatch;
+			});
+		}
+
+		res.json({success: true, data: formattedLogs});
+	} catch (e) {
+		console.error('Fetch renewal logs error:', e);
+		res
+			.status(500)
+			.json({success: false, message: 'Fetch renewal logs failed'});
 	}
 });
 

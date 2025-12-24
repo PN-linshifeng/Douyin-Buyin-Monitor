@@ -1,6 +1,7 @@
 const sequelize = require('./database/connection');
 const User = require('./models/User');
 const Admin = require('./models/Admin');
+const RenewalLog = require('./models/RenewalLog');
 const fs = require('fs');
 const path = require('path');
 

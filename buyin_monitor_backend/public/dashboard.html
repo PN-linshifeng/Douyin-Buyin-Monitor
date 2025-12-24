@@ -161,6 +161,49 @@
       margin-top: 5px;
     }
 
+    /* TABS */
+    .tabs {
+      display: flex;
+      border-bottom: 2px solid #eee;
+      margin-bottom: 20px;
+    }
+
+    .tab-item {
+      padding: 10px 20px;
+      font-size: 16px;
+      cursor: pointer;
+      color: #666;
+      border-bottom: 2px solid transparent;
+      margin-bottom: -2px;
+    }
+
+    .tab-item.active {
+      color: #1890ff;
+      border-bottom: 2px solid #1890ff;
+      font-weight: 500;
+    }
+
+    .tab-content {
+      display: none;
+    }
+
+    .tab-content.active {
+      display: block;
+    }
+
+    .search-bar {
+      margin-bottom: 20px;
+      display: flex;
+      gap: 10px;
+    }
+
+    .search-bar input {
+      padding: 6px 10px;
+      border: 1px solid #ddd;
+      border-radius: 4px;
+      width: 300px;
+    }
+
   </style>
 </head>
 
@@ -173,27 +216,59 @@
         <button onclick="logout()" class="btn btn-default">退出登录</button>
       </div>
     </div>
-    <!-- User Management Section -->
-    <div style="margin-bottom: 15px;">
-      <button onclick="openAddModal()" class="btn btn-primary">+ 新增用户</button>
+    <!-- Tabs -->
+    <div class="tabs">
+      <div class="tab-item active" onclick="switchTab('users')">用户管理</div>
+      <div class="tab-item" onclick="switchTab('logs')">续费记录</div>
     </div>
-    <table id="userTable">
-      <thead>
-        <tr>
-          <th>ID</th>
-          <th>手机号</th>
-          <th>Buyin ID</th>
-          <th>创建时间</th>
-          <th>过期时间</th>
-          <th>指纹</th>
-          <th>状态</th>
-          <th>操作</th>
-        </tr>
-      </thead>
-      <tbody>
-        <!-- Data here -->
-      </tbody>
-    </table>
+    <!-- Tab 1: Users -->
+    <div id="tab-users" class="tab-content active">
+      <div style="margin-bottom: 15px;">
+        <button onclick="openAddModal()" class="btn btn-primary">+ 新增用户</button>
+      </div>
+      <table id="userTable">
+        <thead>
+          <tr>
+            <th>ID</th>
+            <th>手机号</th>
+            <th>Buyin ID</th>
+            <th>创建时间</th>
+            <th>过期时间</th>
+            <th>指纹</th>
+            <th>状态</th>
+            <th>操作</th>
+          </tr>
+        </thead>
+        <tbody>
+          <!-- Data here -->
+        </tbody>
+      </table>
+    </div>
+    <!-- Tab 2: Logs -->
+    <div id="tab-logs" class="tab-content">
+      <div class="search-bar">
+        <input type="text" id="logSearchInput" placeholder="搜索手机号 或 Buyin ID...">
+        <button onclick="loadLogs()" class="btn btn-primary">搜索</button>
+        <button onclick="resetLogSearch()" class="btn btn-default">重置</button>
+      </div>
+      <table id="logTable">
+        <thead>
+          <tr>
+            <th>ID</th>
+            <th>操作时间</th>
+            <th>操作管理员</th>
+            <th>目标用户ID</th>
+            <th>用户手机号</th>
+            <th>User Buyin ID</th>
+            <th>续费前过期时间</th>
+            <th>续费后过期时间</th>
+          </tr>
+        </thead>
+        <tbody>
+          <!-- Logs Data -->
+        </tbody>
+      </table>
+    </div>
   </div>
   <!-- Edit/Add Modal -->
   <div id="userModal" class="modal">
@@ -260,6 +335,29 @@
     // Init
     checkAuth();
 
+    // Tab Switching
+    function switchTab(tabName) {
+      document.querySelectorAll('.tab-item').forEach(el => el.classList.remove('active'));
+      document.querySelectorAll('.tab-content').forEach(el => el.classList.remove('active'));
+
+      // Activate
+      const navItem = Array.from(document.querySelectorAll('.tab-item')).find(el => el.innerText === (tabName === 'users' ? '用户管理' : '续费记录'));
+      if (navItem) navItem.classList.add('active');
+
+      document.getElementById('tab-' + tabName).classList.add('active');
+
+      if (tabName === 'logs') {
+        // Auto load logs if empty or forced? For now just load.
+        // If search input has value (from jump), use it, otherwise normal load
+        loadLogs();
+      }
+    }
+
+    function jumpToLogs(phone) {
+      document.getElementById('logSearchInput').value = phone;
+      switchTab('logs'); // loadLogs called inside
+    }
+
     function checkAuth() {
       fetch('/api/admin/check-auth')
         .then(res => res.json())
@@ -269,6 +367,7 @@
           } else {
             document.getElementById('currentUser').innerText = data.user.username;
             loadUsers();
+            // Pre-load logs could be optional, but switchTab does it
           }
         });
     }
@@ -324,6 +423,7 @@
                     <td>${statusHtml}</td>
                     <td>
                         <button onclick="openRenewModal('${u.id}', '${u.phone}', '${u.expirationTime || ''}')" class="btn btn-primary" style="margin-right:5px;">续费</button>
+                        <button onclick="jumpToLogs('${u.phone}')" class="btn btn-default" style="margin-right:5px;">续费记录</button>
                         <button onclick="openEditModal('${u.id}', '${u.expirationTime || ''}', '${u.fingerprint || ''}')" class="btn btn-default" style="margin-right:5px;">修改</button>
                         <button onclick="deleteUser('${u.id}')" class="btn btn-danger">删除</button>
                     </td>
@@ -502,6 +602,64 @@
         alert(data.message || '续费失败');
       }
     }
+
+    // --- Logs Logic ---
+    function resetLogSearch() {
+      document.getElementById('logSearchInput').value = '';
+      loadLogs();
+    }
+
+    async function loadLogs() {
+      const search = document.getElementById('logSearchInput').value.trim();
+      let url = '/api/admin/renewal-logs';
+      if (search) {
+        url += `?search=${encodeURIComponent(search)}`;
+      }
+
+      try {
+        const res = await fetch(url);
+        const result = await res.json();
+        if (result.success) {
+          renderLogsTable(result.data);
+        } else {
+          // alert(result.message || '加载日志失败'); // fail silently or toast
+        }
+      } catch (e) {
+        console.error(e);
+      }
+    }
+
+    function renderLogsTable(logs) {
+      const tbody = document.querySelector('#logTable tbody');
+      tbody.innerHTML = '';
+
+      if (!logs || logs.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="8" style="text-align:center;color:#999;">暂无日志</td></tr>';
+        return;
+      }
+
+      logs.forEach(log => {
+        const tr = document.createElement('tr');
+        tr.innerHTML = `
+            <td>${log.id}</td>
+            <td>${formatDate(log.createdAt)}</td>
+            <td>${log.adminUsername || '-'}</td>
+            <td>${log.targetUserId}</td>
+            <td>${log.targetPhone}</td>
+            <td>${log.targetBuyinId || '-'}</td>
+            <td>${formatDate(log.oldExpirationTime)}</td>
+            <td style="color:#1890ff;font-weight:500;">${formatDate(log.newExpirationTime)}</td>
+        `;
+        tbody.appendChild(tr);
+      });
+    }
+
+    // Enter to search logs
+    document.getElementById('logSearchInput').addEventListener('keypress', function (e) {
+      if (e.key === 'Enter') {
+        loadLogs();
+      }
+    });
 
     function logout() {
       fetch('/api/admin/logout', { method: 'POST' })
