@@ -82,6 +82,13 @@
 	function updateButtonState(btn, type) {
 		if (!btn || !window.DM_UI) return;
 
+		// Clear inline styles to allow CSS classes to work
+		btn.style.background = '';
+		btn.style.backgroundColor = '';
+		btn.style.color = '';
+		btn.style.border = '';
+		btn.style.boxShadow = '';
+
 		const ui = window.DM_UI;
 		// 移除旧的状态类
 		btn.classList.remove(
@@ -89,7 +96,9 @@
 			'dm-btn-success',
 			'dm-btn-warning',
 			'dm-btn-danger',
-			'dm-btn-disabled'
+			'dm-btn-disabled',
+			'dm-btn-success-light',
+			'dm-btn-primary-light'
 		);
 		btn.classList.add('dm-button');
 
@@ -108,7 +117,7 @@
 			case 'passed':
 				btn.innerText = '已通过初筛';
 				btn.disabled = false;
-				btn.classList.add('dm-btn-success');
+				btn.classList.add('dm-btn-success-light');
 				break;
 			case 'bad':
 				btn.innerText = '不推荐';
@@ -118,7 +127,7 @@
 			case 'normal':
 				btn.innerText = '一般';
 				btn.disabled = false;
-				btn.classList.add('dm-btn-primary');
+				btn.classList.add('dm-btn-primary-light');
 				break;
 			case 'error':
 				btn.innerText = '❎分析失败';
@@ -127,7 +136,7 @@
 				break;
 			case 'default':
 			default:
-				btn.innerText = '获取选品数据';
+				btn.innerText = '分析数据';
 				btn.disabled = false;
 				btn.classList.add('dm-btn-primary');
 				break;
@@ -244,7 +253,7 @@
 		}
 	}
 
-	// 处理"获取选品数据"按钮点击事件
+	// 处理"分析数据"按钮点击事件
 	async function handleGetSelectionData(btn) {
 		const pid = btn.getAttribute('data-pid');
 		if (!pid) {
@@ -279,17 +288,13 @@
 			btn = document.createElement('button');
 			// 使用统一状态初始化
 			updateButtonState(btn, 'default');
-			btn.className = 'douyin-monitor-list-btn';
+			btn.className = 'douyin-monitor-list-btn dm-button';
+			btn.style.width = '100%';
+
 			if (window.DM_UI) {
-				btn.style.cssText = window.DM_UI.getButtonStyle(
-					window.DM_UI.colors.batch,
-					true
-				);
-				btn.style.setProperty('width', '100%', 'important');
 				btn.style.fontSize = '14px';
 				if (!isTable) {
-					btn.style.padding = '10px 10px !important';
-					// btn.style.fontSize = '14px';
+					btn.style.padding = '10px 10px';
 				}
 			} else {
 				btn.style.width = '100%';
@@ -305,7 +310,7 @@
 		btn.setAttribute('data-pid', pid);
 	}
 
-	// 向页面商品列表中注入"获取选品数据"按钮
+	// 向页面商品列表中注入"分析数据"按钮
 	function injectButtons() {
 		if (
 			window.location.href.indexOf('/dashboard/merch-picking-library') === -1
@@ -381,10 +386,12 @@
 		batchAnalysisActive = true;
 		stopBatchSignalled = false;
 		const originalText = btn.innerText;
-		const originalBg = btn.style.backgroundColor;
+		// const originalBg = btn.style.backgroundColor; // No longer needed
 
 		btn.innerText = '停止批量分析';
-		btn.style.backgroundColor = '#ff4d4f'; // 改为红色表示可停止
+		// btn.style.backgroundColor = '#ff4d4f';
+		btn.classList.remove('dm-btn-primary');
+		btn.classList.add('dm-btn-danger');
 
 		console.log(`[批量分析] 开始处理 ${savedPromotions.length} 个商品...`);
 
@@ -477,7 +484,9 @@
 		batchAnalysisActive = false;
 		stopBatchSignalled = false;
 		btn.innerText = originalText;
-		btn.style.backgroundColor = originalBg;
+		// btn.style.backgroundColor = originalBg;
+		btn.classList.remove('dm-btn-danger');
+		btn.classList.add('dm-btn-primary');
 		btn.disabled = false;
 	}
 
@@ -496,10 +505,9 @@
 
 		const btn = document.createElement('button');
 		btn.id = 'douyin-monitor-batch-btn';
-		btn.className = 'dm-button dm-btn-primary';
+		btn.className = 'dm-button dm-btn-primary dm-btn-large';
 		btn.innerText = '批量分析本页商品';
 		if (window.DM_UI) {
-			btn.style.cssText = window.DM_UI.getButtonStyle(null);
 			btn.style.setProperty('width', '100%', 'important');
 		}
 

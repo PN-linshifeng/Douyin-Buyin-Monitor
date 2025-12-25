@@ -5,7 +5,7 @@
 关联协议：RIPER-5
 
 # 任务描述
-优化 `buyin_monitor_backend/public/extension/product_list.js` 中的代码，将“获取选品数据按钮”和“批量分析本页商品”的公共逻辑去重并合并。
+优化 `buyin_monitor_backend/public/extension/product_list.js` 中的代码，将“分析数据按钮”和“批量分析本页商品”的公共逻辑去重并合并。
 
 # 核心分析
 - **现状**:

@@ -46,12 +46,12 @@
 		const btn = document.createElement('button');
 		btn.id = 'dm-recommendation-btn';
 		btn.innerText = '推荐选品';
-		btn.className = 'dm-button';
+		btn.className = 'dm-button dm-btn-success dm-btn-large';
 
 		// 样式：适配 widget 内部
 		if (window.DM_UI) {
 			// 使用自定义颜色 (例如紫色) 区分
-			btn.style.cssText = window.DM_UI.getButtonStyle('#722ed1', true);
+			// btn.style.cssText = window.DM_UI.getButtonStyle('#722ed1', true);
 			btn.style.setProperty('width', '100%', 'important');
 			btn.style.marginBottom = '6px';
 		}
@@ -68,44 +68,21 @@
 		}
 
 		// 使用 UI 库创建弹窗
-		let container, content, actionsDiv, closeBtn;
-
-		if (window.DM_UI && window.DM_UI.createDarkPopup) {
-			const result = window.DM_UI.createDarkPopup({
-				id: 'dm-rec-popup',
-				title: '推荐选品列表',
-				zIndex: 9000,
-			});
-			container = result.container;
-			content = result.content;
-			actionsDiv = result.actionsDiv;
-			closeBtn = result.closeBtn;
-		} else {
-			console.warn('UI 库未加载，使用内置 Fallback');
-			const result = createDarkPopupFallback({
-				id: 'dm-rec-popup',
-				title: '推荐选品列表',
-				zIndex: 9000,
-			});
-			container = result.container;
-			content = result.content;
-			actionsDiv = result.actionsDiv;
-			closeBtn = result.closeBtn;
-
-			// Inject Table Styles if missing
-			if (!document.getElementById('dm-fallback-styles')) {
-				const style = document.createElement('style');
-				style.id = 'dm-fallback-styles';
-				style.textContent = `
-					.dm-dark-table { width: 100%; border-collapse: collapse; font-size: 14px; }
-					.dm-dark-table th { padding: 10px; border: 1px solid #444; color: #e0e0e0; background: #2d2d2d; text-align: left; }
-					.dm-dark-table td { padding: 10px; border: 1px solid #444; color: #ccc; }
-					.dm-rec-row td a { color: #ccc; text-decoration: underline; }
-				`;
-				document.head.appendChild(style);
-			}
+		if (!window.DM_UI || !window.DM_UI.createDarkPopup) {
+			console.error('UI 库未加载或版本过旧，无法创建弹窗');
+			alert(
+				'检测到 UI 库未更新，请在扩展管理页点击“重载”按钮更新插件，然后刷新本页。'
+			);
+			return;
 		}
 
+		const result = window.DM_UI.createDarkPopup({
+			id: 'dm-rec-popup',
+			title: '推荐选品列表',
+			zIndex: 9000,
+		});
+
+		const {container, content, actionsDiv, closeBtn} = result;
 		popupInstance = container;
 
 		// 添加收起/展开按钮
@@ -291,65 +268,6 @@
 		document.addEventListener('DOMContentLoaded', init);
 	} else {
 		init();
-	}
-
-	function createDarkPopupFallback(config) {
-		const {id, title, width = '90%', zIndex = 11000} = config;
-		let container = document.getElementById(id);
-		if (container) return {container, exists: true};
-
-		container = document.createElement('div');
-		container.id = id;
-		container.style.cssText = `
-			position: fixed;
-			top: 50px; left: 50%; transform: translate(-50%, 0%);
-			z-index: ${zIndex}; display: block;
-			background-color: #1e1e1e; color: #e0e0e0;
-			padding: 20px; border-radius: 8px;
-			box-shadow: 0 4px 20px rgba(0,0,0,0.4);
-			width: ${width}; max-width: 1000px; max-height: 90vh;
-			overflow-y: auto;
-			font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
-		`;
-
-		const header = document.createElement('div');
-		header.style.cssText = `
-			display: flex; justify-content: space-between; align-items: center;
-			margin-bottom: 20px; border-bottom: 1px solid #444; padding-bottom: 10px; cursor: move;
-		`;
-
-		const titleEl = document.createElement('h3');
-		titleEl.innerText = title;
-		titleEl.style.cssText = 'margin: 0; color: #fff; font-size: 18px;';
-
-		const actionsDiv = document.createElement('div');
-		actionsDiv.style.cssText = 'display:flex; gap:8px; align-items:center;';
-
-		const closeBtn = document.createElement('button');
-		closeBtn.innerText = '✕';
-		closeBtn.style.cssText = `
-			background: transparent; border: none; color: #ccc; font-size: 16px; cursor: pointer; padding: 4px 8px;
-		`;
-		closeBtn.onmouseenter = () => (closeBtn.style.color = '#fff');
-		closeBtn.onmouseleave = () => (closeBtn.style.color = '#ccc');
-		closeBtn.onclick = () => {
-			container.style.display = 'none';
-		};
-
-		actionsDiv.appendChild(closeBtn);
-		header.appendChild(titleEl);
-		header.appendChild(actionsDiv);
-		container.appendChild(header);
-
-		const content = document.createElement('div');
-		container.appendChild(content);
-		document.body.appendChild(container);
-
-		if (window.ProductInfo && window.ProductInfo.makeDraggable) {
-			window.ProductInfo.makeDraggable(container, header);
-		}
-
-		return {container, header, content, actionsDiv, closeBtn};
 	}
 
 	// Globals

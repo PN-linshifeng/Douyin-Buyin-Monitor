@@ -29,53 +29,6 @@
 		false
 	);
 
-	/**
-	 * 让元素可拖拽
-	 */
-	function makeDraggable(element, handle) {
-		handle = handle || element;
-		handle.style.cursor = 'move';
-
-		let isDragging = false;
-		let startX, startY, initialLeft, initialTop;
-
-		handle.onmousedown = function (e) {
-			e.preventDefault();
-			isDragging = true;
-			startX = e.clientX;
-			startY = e.clientY;
-
-			const rect = element.getBoundingClientRect();
-			initialLeft = rect.left;
-			initialTop = rect.top;
-
-			element.style.position = 'fixed';
-			element.style.left = initialLeft + 'px';
-			element.style.top = initialTop + 'px';
-			element.style.right = 'auto';
-			element.style.bottom = 'auto';
-			element.style.margin = '0';
-			element.style.transform = 'none';
-
-			document.addEventListener('mousemove', onMouseMove);
-			document.addEventListener('mouseup', onMouseUp);
-		};
-
-		function onMouseMove(e) {
-			if (!isDragging) return;
-			const dx = e.clientX - startX;
-			const dy = e.clientY - startY;
-			element.style.left = initialLeft + dx + 'px';
-			element.style.top = initialTop + dy + 'px';
-		}
-
-		function onMouseUp() {
-			isDragging = false;
-			document.removeEventListener('mousemove', onMouseMove);
-			document.removeEventListener('mouseup', onMouseUp);
-		}
-	}
-
 	function sendInjectedRequest(url, body) {
 		return new Promise((resolve, reject) => {
 			const requestId = Date.now() + '_' + Math.random();
@@ -213,103 +166,55 @@
 			.join('');
 
 		return `
-			<table style="width: 100%; border-collapse: collapse; margin-bottom: 20px; font-size: 14px;">
-				<thead style="background-color: #2d2d2d;">
+			<table class="dm-dark-table" style="margin-bottom: 20px;">
+				<thead>
 					<tr>
-						<th style="padding: 10px; border: 1px solid #444; color: #e0e0e0; width: 15%;">${days}天</th>
-						<th style="padding: 10px; border: 1px solid #444; color: #e0e0e0;">销售渠道</th>
-						<th style="padding: 10px; border: 1px solid #444; color: #e0e0e0;">销售量</th>
-						<th style="padding: 10px; border: 1px solid #444; color: #e0e0e0;">销售占比</th>
-						<th style="padding: 10px; border: 1px solid #444; color: #e0e0e0;">日均销售单数</th>
-						<th style="padding: 10px; border: 1px solid #444; color: #e0e0e0;">平均客单价</th>
+						<th style="width: 15%;">${days}天</th>
+						<th style="text-align: center;">销售渠道</th>
+						<th style="text-align: center;">销售量</th>
+						<th style="text-align: center;">销售占比</th>
+						<th style="text-align: center;">日均销售单数</th>
+						<th style="text-align: center;">平均客单价</th>
 					</tr>
 				</thead>
-				<tbody>
+				<tbody style="text-align: center;">
 					<tr>
-						<td rowspan="5" style="padding: 10px; border: 1px solid #444; text-align: center; color: #ff8888; font-weight: bold;">总销量: ${totalSales}</td>
-						<td style="padding: 8px; border: 1px solid #444; text-align: center; color: #cccccc;">${
-							rowCard.name
-						}</td>
-						<td style="padding: 8px; border: 1px solid #444; text-align: center; color: #cccccc;">${
-							rowCard.vol
-						}</td>
-						<td style="padding: 8px; border: 1px solid #444; text-align: center; color: #cccccc;">${
-							rowCard.share
-						}</td>
-						<td style="padding: 8px; border: 1px solid #444; text-align: center; color: ${
-							rowCard.dailyColor || '#cccccc'
-						}; font-weight: bold;">${rowCard.daily}</td>
-						<td style="padding: 8px; border: 1px solid #444; text-align: center; color: #cccccc;">${
-							rowCard.price
-						}</td>
+						<td rowspan="5" style="color: #ff8888; font-weight: bold;">总销量: ${totalSales}</td>
+						<td>${rowCard.name}</td>
+						<td>${rowCard.vol}</td>
+						<td>${rowCard.share}</td>
+						<td style="color: ${rowCard.dailyColor || '#cccccc'}; font-weight: bold;">${
+			rowCard.daily
+		}</td>
+						<td>${rowCard.price}</td>
 					</tr>
 					<tr>
-						<td style="padding: 8px; border: 1px solid #444; text-align: center; color: #cccccc;">${
-							rowLive.name
-						}</td>
-						<td style="padding: 8px; border: 1px solid #444; text-align: center; color: #cccccc;">${
-							rowLive.vol
-						}</td>
-						<td style="padding: 8px; border: 1px solid #444; text-align: center; color: #cccccc;">${
-							rowLive.share
-						}</td>
-						<td style="padding: 8px; border: 1px solid #444; text-align: center; color: #cccccc;">${
-							rowLive.daily
-						}</td>
-						<td style="padding: 8px; border: 1px solid #444; text-align: center; color: #cccccc;">${
-							rowLive.price
-						}</td>
+						<td>${rowLive.name}</td>
+						<td>${rowLive.vol}</td>
+						<td>${rowLive.share}</td>
+						<td>${rowLive.daily}</td>
+						<td>${rowLive.price}</td>
 					</tr>
 					<tr>
-						<td style="padding: 8px; border: 1px solid #444; text-align: center; color: #cccccc;">${
-							rowVideo.name
-						}</td>
-						<td style="padding: 8px; border: 1px solid #444; text-align: center; color: #cccccc;">${
-							rowVideo.vol
-						}</td>
-						<td style="padding: 8px; border: 1px solid #444; text-align: center; color: #cccccc;">${
-							rowVideo.share
-						}</td>
-						<td style="padding: 8px; border: 1px solid #444; text-align: center; color: #cccccc;">${
-							rowVideo.daily
-						}</td>
-						<td style="padding: 8px; border: 1px solid #444; text-align: center; color: #cccccc;">${
-							rowVideo.price
-						}</td>
+						<td>${rowVideo.name}</td>
+						<td>${rowVideo.vol}</td>
+						<td>${rowVideo.share}</td>
+						<td>${rowVideo.daily}</td>
+						<td>${rowVideo.price}</td>
 					</tr>
 					<tr>
-						<td style="padding: 8px; border: 1px solid #444; text-align: center; color: #cccccc;">${
-							rowImage.name
-						}</td>
-						<td style="padding: 8px; border: 1px solid #444; text-align: center; color: #cccccc;">${
-							rowImage.vol
-						}</td>
-						<td style="padding: 8px; border: 1px solid #444; text-align: center; color: #cccccc;">${
-							rowImage.share
-						}</td>
-						<td style="padding: 8px; border: 1px solid #444; text-align: center; color: #cccccc;">${
-							rowImage.daily
-						}</td>
-						<td style="padding: 8px; border: 1px solid #444; text-align: center; color: #cccccc;">${
-							rowImage.price
-						}</td>
+						<td>${rowImage.name}</td>
+						<td>${rowImage.vol}</td>
+						<td>${rowImage.share}</td>
+						<td>${rowImage.daily}</td>
+						<td>${rowImage.price}</td>
 					</tr>
 					<tr>
-						<td style="padding: 8px; border: 1px solid #444; text-align: center; color: #cccccc;">${
-							rowShop.name
-						}</td>
-						<td style="padding: 8px; border: 1px solid #444; text-align: center; color: #cccccc;">${
-							rowShop.vol
-						}</td>
-						<td style="padding: 8px; border: 1px solid #444; text-align: center; color: #cccccc;">${
-							rowShop.share
-						}</td>
-						<td style="padding: 8px; border: 1px solid #444; text-align: center; color: #cccccc;">${
-							rowShop.daily
-						}</td>
-						<td style="padding: 8px; border: 1px solid #444; text-align: center; color: #cccccc;">${
-							rowShop.price
-						}</td>
+						<td>${rowShop.name}</td>
+						<td>${rowShop.vol}</td>
+						<td>${rowShop.share}</td>
+						<td>${rowShop.daily}</td>
+						<td>${rowShop.price}</td>
 					</tr>
 				</tbody>
 			</table>
@@ -319,6 +224,7 @@
 					<!-- ${'--' || liveSalesDiff.formula} = -->
 					<span style="color: #fff; font-weight: bold;">${liveSalesDiff.val}</span>
 				</div>
+				<div>
 					<strong>直播出单规格：</strong>
 					 <!-- ${'--' || specStat.formula} =  -->
 					 <span style="font-weight:bold; color: #fff;">${specStat.val.toFixed(2)}</span>
@@ -336,134 +242,96 @@
 		decision_enter_from,
 		isError = false
 	) {
+		// Clean up old popup
 		const oldPopup = document.getElementById('douyin-monitor-popup');
 		if (oldPopup) oldPopup.remove();
 
-		const container = document.createElement('div');
-		container.id = 'douyin-monitor-popup';
-		container.style.position = 'fixed';
-		container.style.top = '50px';
-		container.style.left = '50%';
-		container.style.transform = 'translate(-50%, 0%)';
-		container.style.zIndex = '10000';
-		container.style.display = 'block';
-		container.style.backgroundColor = '#1e1e1e';
-		container.style.color = '#e0e0e0';
-		container.style.padding = '20px';
-		container.style.borderRadius = '8px';
-		container.style.boxShadow = '0 4px 20px rgba(0,0,0,0.4)';
-		container.style.width = '98%';
-		container.style.maxWidth = '1200px';
-		container.style.maxHeight = '95vh';
-		container.style.overflowY = 'auto';
+		if (!window.DM_UI || !window.DM_UI.createDarkPopup) {
+			alert('UI 库未加载，请重载扩展并刷新页面');
+			return;
+		}
 
-		const title = document.createElement('h3');
+		const {container, header, content, actionsDiv, closeBtn} =
+			window.DM_UI.createDarkPopup({
+				id: 'douyin-monitor-popup',
+				title: '', // Will populate manually
+				width: '98%',
+				zIndex: 10000,
+				onClose: () => {
+					// Completely remove from DOM on close to ensure fresh state on next open
+					container.remove();
+				},
+			});
 
-		const link = document.createElement('a');
-		link.href = `https://buyin.jinritemai.com/dashboard/merch-picking-library/merch-promoting?commodity_id=${promotionId}&commodity_location=1&id=${promotionId}`;
-		link.target = '_blank';
-		link.innerText = productName;
-		link.style.color = '#ffffff';
-		link.style.textDecoration = 'underline';
-		link.style.cursor = 'pointer';
-		link.onmousedown = (e) => {
-			e.stopPropagation();
-		};
-		link.onmouseenter = () => {
-			// link.style.textDecoration = 'underline';
-		};
-		link.onmouseleave = () => {
-			// link.style.textDecoration = 'none';
-		};
+		// 1. 设置 Title (Link)
+		const titleEl = header.querySelector('.dm-popup-title');
+		if (titleEl) {
+			const link = document.createElement('a');
+			link.href = `https://buyin.jinritemai.com/dashboard/merch-picking-library/merch-promoting?commodity_id=${promotionId}&commodity_location=1&id=${promotionId}`;
+			link.target = '_blank';
+			link.innerText = productName;
+			link.className = 'dm-popup-title'; // Keep same style class if needed, or inherit
+			link.style.textDecoration = 'underline';
+			link.style.cursor = 'pointer';
+			link.style.color = '#fff'; // Inherit color
+			link.onmousedown = (e) => e.stopPropagation();
 
-		title.appendChild(link);
-		title.style.display = 'flex';
-		title.style.justifyContent = 'space-between';
-		title.style.alignItems = 'center';
-		title.style.marginBottom = '20px';
-		title.style.color = '#ffffff';
-		title.style.borderBottom = '1px solid #444';
-		title.style.paddingBottom = '10px';
+			titleEl.innerHTML = ''; // Clear empty text
+			titleEl.appendChild(link);
+		}
 
-		// 操作按钮区域
-		const actionsDiv = document.createElement('div');
-		actionsDiv.style.display = 'flex';
-		actionsDiv.style.gap = '10px';
-		actionsDiv.style.alignItems = 'center';
+		// 2. 添加操作按钮
+		// 收起/展开内容按钮
+		const toggleBtn = document.createElement('button');
+		toggleBtn.className = 'dm-button dm-btn-small';
+		toggleBtn.innerText = '🔼 收起';
+		toggleBtn.style.background = 'rgba(255, 255, 255, 0.1)';
+		toggleBtn.style.border = '1px solid rgba(255, 255, 255, 0.2)';
 
 		// 刷新按钮
 		const refreshBtn = document.createElement('button');
-		refreshBtn.className = 'dm-button dm-btn-primary';
+		refreshBtn.className = 'dm-button dm-btn-primary dm-btn-small';
 		refreshBtn.innerText = '↻ 刷新';
-		if (window.DM_UI) {
-			refreshBtn.style.cssText = window.DM_UI.getButtonStyle(null);
-			refreshBtn.style.width = 'auto';
-			refreshBtn.style.padding = '4px 8px !important';
-			refreshBtn.style.fontSize = '12px';
-		}
-
 		refreshBtn.onclick = (e) => {
-			e.stopPropagation(); // 防止触发拖拽
+			e.stopPropagation();
 			refreshBtn.innerText = '分析中...';
 			refreshBtn.disabled = true;
 			refreshBtn.classList.remove('dm-btn-primary');
 			refreshBtn.classList.add('dm-btn-warning');
 			analyzeAndShow(promotionId, decision_enter_from);
 		};
-		refreshBtn.onmousedown = (e) => e.stopPropagation(); // 防止触发拖拽
-		actionsDiv.appendChild(refreshBtn);
+		refreshBtn.onmousedown = (e) => e.stopPropagation();
 
 		// 检测达人卷按钮
 		const snifferBtn = document.createElement('button');
-		snifferBtn.className = 'dm-button dm-btn-primary';
+		snifferBtn.className = 'dm-button dm-btn-primary dm-btn-small';
 		snifferBtn.innerText = '检测达人卷';
-		if (window.DM_UI) {
-			snifferBtn.style.cssText = window.DM_UI.getButtonStyle(null);
-			snifferBtn.style.width = 'auto';
-			snifferBtn.style.padding = '4px 8px !important';
-			snifferBtn.style.fontSize = '12px';
-			snifferBtn.style.marginLeft = '10px';
-		}
-
 		snifferBtn.onclick = (e) => {
 			e.stopPropagation();
 			if (!window.CouponSniffer) {
 				alert('达人卷嗅探模块未加载');
 				return;
 			}
-
-			// 从结果中查找7天数据
 			const sevenDayIndex = ranges.indexOf(7);
 			let targetProductId = null;
 			let targetPromotionId = promotionId;
 
 			if (sevenDayIndex !== -1 && results[sevenDayIndex]) {
 				const sevenDayData = results[sevenDayIndex].data;
-				// 尝试解析 product_id, 根据实际接口返回结构调整
-				// 假设它在顶层或者 data 层
 				targetProductId =
 					sevenDayData?.product_id || sevenDayData?.data?.product_id;
-
-				// 如果接口返回了 promotion_id 也优先使用
 				const apiPromotionId =
 					sevenDayData?.promotion_id || sevenDayData?.data?.promotion_id;
-				if (apiPromotionId) {
-					targetPromotionId = apiPromotionId;
-				}
+				if (apiPromotionId) targetPromotionId = apiPromotionId;
 			}
 
-			// 如果没找到 product_id，尝试使用 promotionId 作为备选，或者提示
 			if (!targetProductId) {
-				// 有时候 promotion_id 和 product_id 是一样的，但这取决于业务
-				// 这里我们可以尝试让 CouponSniffer 自己去处理缺省情况，或者我们就传 promotionId
-				// 但根据需求，我们要从接口获取。如果获取不到，至少 log 一下
 				console.warn(
 					'未能在7天数据中找到 product_id, 将尝试使用 promotionId:',
 					promotionId
 				);
 				targetProductId = promotionId;
 			}
-
 			window.CouponSniffer.runSniff(
 				targetProductId,
 				targetPromotionId,
@@ -471,60 +339,13 @@
 			);
 		};
 		snifferBtn.onmousedown = (e) => e.stopPropagation();
-		actionsDiv.appendChild(snifferBtn);
 
-		// 头部关闭按钮
-		const headerCloseBtn = document.createElement('button');
-		headerCloseBtn.innerText = '✕';
-		headerCloseBtn.style.padding = '4px 8px';
-		headerCloseBtn.style.fontSize = '14px';
-		headerCloseBtn.style.backgroundColor = 'transparent';
-		headerCloseBtn.style.border = 'none';
-		headerCloseBtn.style.color = '#ccc';
-		headerCloseBtn.style.cursor = 'pointer';
-		headerCloseBtn.onmouseenter = () => (headerCloseBtn.style.color = '#fff');
-		headerCloseBtn.onmouseleave = () => (headerCloseBtn.style.color = '#ccc');
-		headerCloseBtn.onclick = (e) => {
-			e.stopPropagation();
-			container.remove();
-		};
-		headerCloseBtn.onmousedown = (e) => e.stopPropagation();
-		actionsDiv.appendChild(headerCloseBtn);
+		// Insert buttons in order
+		actionsDiv.insertBefore(refreshBtn, closeBtn);
+		actionsDiv.insertBefore(snifferBtn, closeBtn);
+		actionsDiv.insertBefore(toggleBtn, closeBtn);
 
-		// 收起/展开内容按钮
-		const toggleBtn = document.createElement('button');
-		toggleBtn.className = 'dm-button';
-		toggleBtn.innerText = '🔼 收起';
-		if (window.DM_UI) {
-			toggleBtn.style.cssText = window.DM_UI.getButtonStyle(
-				'rgba(255, 255, 255, 0.1)'
-			);
-			toggleBtn.style.width = 'auto';
-			toggleBtn.style.padding = '4px 8px !important';
-			toggleBtn.style.fontSize = '12px';
-			toggleBtn.style.border = '1px solid rgba(255, 255, 255, 0.2)';
-		}
-
-		let isExpanded = true;
-		toggleBtn.onclick = (e) => {
-			e.stopPropagation();
-			isExpanded = !isExpanded;
-			toggleBtn.innerText = isExpanded ? '🔼 收起' : '🔽 展开';
-
-			// 切换表格容器的可见性
-			if (tablesContainer) {
-				tablesContainer.style.display = isExpanded ? 'flex' : 'none';
-			}
-		};
-		toggleBtn.onmousedown = (e) => e.stopPropagation();
-		// 插入到关闭按钮之前
-		actionsDiv.insertBefore(toggleBtn, headerCloseBtn);
-
-		title.appendChild(actionsDiv);
-		container.appendChild(title);
-
-		makeDraggable(container, title);
-
+		// 3. 构建 Popover 内容 (Tables & Advice)
 		const tablesContainer = document.createElement('div');
 		tablesContainer.style.display = 'flex';
 		tablesContainer.style.gap = '15px';
@@ -534,20 +355,14 @@
 		let adviceStats = null;
 
 		results.forEach((item, index) => {
-			// const data = item?.data || {};
 			const days = ranges[index];
-			// const stats = calculateStats(data, days, productPrice, data.promotion_id);
-			const stats = item.stats; // 使用后端计算的结果
+			const stats = item.stats;
 			if (!stats) {
 				console.error('Stats not found for index', index);
 				return;
 			}
 			const tableHtml = createTableHtml(stats);
-
-			// 获取7天的数据用于生成建议
-			if (days === 7) {
-				adviceStats = stats;
-			}
+			if (days === 7) adviceStats = stats;
 
 			const wrapper = document.createElement('div');
 			wrapper.style.flex = '1';
@@ -582,12 +397,11 @@
             `;
 		}
 
-		container.appendChild(tablesContainer);
-		container.appendChild(adviceContainer);
+		content.appendChild(tablesContainer);
+		content.appendChild(adviceContainer);
 
-		toggleBtn.onclick = null; // 移除之前的事件处理程序引用
-
-		// 更新切换逻辑以同时控制两者显示
+		// Toggle Logic
+		let isExpanded = true;
 		toggleBtn.onclick = (e) => {
 			e.stopPropagation();
 			isExpanded = !isExpanded;
@@ -598,11 +412,9 @@
 			if (tablesContainer) tablesContainer.style.display = displayVal;
 			if (adviceContainer) adviceContainer.style.display = displayBlock;
 		};
+		toggleBtn.onmousedown = (e) => e.stopPropagation();
 
-		// container.appendChild(tablesContainer); // 已移除 (在上面已添加)
-		// container.appendChild(adviceContainer); // 在上面已添加
-
-		document.body.appendChild(container);
+		// DM_UI automatically handles appending to body and DM_Utils handles dragging if available
 	}
 
 	async function analyzeAndShow(
@@ -750,11 +562,8 @@
 
 		const btn = document.createElement('button');
 		btn.id = 'douyin-monitor-btn';
-		btn.className = 'dm-button dm-btn-primary';
+		btn.className = 'dm-button dm-btn-primary dm-btn-large';
 		btn.innerText = '获取数据';
-		if (window.DM_UI) {
-			btn.style.cssText = window.DM_UI.getButtonStyle(null);
-		}
 
 		// 防止点击拖拽时触发 click
 		let isDrag = false;
@@ -815,7 +624,6 @@
 	}
 
 	window.ProductInfo = {
-		makeDraggable,
 		sendInjectedRequest,
 		fetchProductData,
 		fetchDataFordays,
