@@ -227,8 +227,14 @@
 						promo?.base_model?.product_info?.img_url ||
 						'';
 
+					// 尝试获取 ProductID
+					const productId =
+						promo?.product_id || promo?.base_model?.product_info?.product_id;
+
 					const newItem = {
 						id: promotionId,
+						promotionId: promotionId, // Explicitly store promotionId
+						productId: productId, // Store productId for sniffer
 						name: productName,
 						price:
 							typeof productPrice === 'number'
@@ -323,7 +329,7 @@
 
 		// 场景 A: 卡片视图
 		const wrappers = document.querySelectorAll(
-			'div[class*="index_module__wrapper"]'
+			'div[data-react-components="../../global/components/summary-commodity-card/index.tsx_SummaryCommodityCard"]'
 		);
 		if (wrappers.length > 0) {
 			wrappers.forEach((w) => items.push({el: w, type: 'card'}));
@@ -417,8 +423,10 @@
 		let successCount = 0;
 		let failCount = 0;
 		let isStoppedManually = false;
+		let index = 0;
 
 		for (const promo of savedPromotions) {
+			index = index + 1;
 			// 检查是否收到了停止信号
 			if (stopBatchSignalled) {
 				console.log('[批量分析] 收到停止信号，正在中断...');
@@ -462,9 +470,10 @@
 			} else {
 				failCount++;
 			}
-
-			// 简单的防频控延时
-			await new Promise((r) => setTimeout(r, 1000 + Math.random() * 1000));
+			if (index % 4 === 0) {
+				// 简单的防频控延时
+				await new Promise((r) => setTimeout(r, 1000 + Math.random() * 1000));
+			}
 		}
 
 		console.log(

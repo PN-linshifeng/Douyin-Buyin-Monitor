@@ -153,7 +153,7 @@
 
 				if (i < times) {
 					console.log(`[达人卷嗅探] 第 ${i} 次尝试未找到数据，3秒后重试...`);
-					await sleep(3000);
+					await sleep(5000);
 				}
 			}
 

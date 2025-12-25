@@ -206,6 +206,95 @@
 			}
 			btnGet.onclick = () => handleGetData(item.id, item);
 
+			// Check Da Ren Juan Button
+			const btnCheck = document.createElement('button');
+			btnCheck.innerText = '检查达人卷';
+			btnCheck.className = 'dm-button';
+
+			if (window.DM_UI) {
+				btnCheck.style.cssText =
+					window.DM_UI.getButtonStyle('#13c2c2') + sharedStyle;
+			} else {
+				btnCheck.style.cssText = `background: #13c2c2; ${sharedStyle}`;
+			}
+			btnCheck.onclick = async (e) => {
+				e.stopPropagation();
+				if (!window.CouponSniffer || !window.CouponSniffer.runSniff) {
+					alert('达人卷嗅探模块未加载，请刷新页面重试');
+					return;
+				}
+
+				// 1. 准备 ID
+				let productId = item.productId;
+				// 兼容旧数据：id 即为 promotionId
+				const promotionId = item.promotionId || item.id;
+
+				// 2. 如果缺少 ProductId，尝试通过接口获取
+				if (!productId) {
+					const originalText = btnCheck.innerText;
+					btnCheck.innerText = '获取ID...';
+					btnCheck.disabled = true;
+					btnCheck.style.opacity = '0.7';
+
+					try {
+						if (window.ProductInfo && window.ProductInfo.fetchDataFordays) {
+							// 请求 7 天数据
+							const res = await window.ProductInfo.fetchDataFordays(
+								7,
+								promotionId
+							);
+							// 解析 product_id
+							// 结构通常是: res.data.product_id 或 res.data.data.product_id
+							const data = res.data || {};
+							productId =
+								data.product_id || (data.data && data.data.product_id);
+
+							if (productId) {
+								console.log(
+									'已获取 ProductId:',
+									productId,
+									'PromotionId:',
+									promotionId
+								);
+								// 3. 更新本地存储
+								// item 是引用吗？Object.values返回的是新对象还是引用？
+								// getStore返回的是对象，我们直接修改 store 并保存
+								const store = getStore();
+								if (store[item.id]) {
+									store[item.id].productId = productId;
+									store[item.id].promotionId = promotionId; // 确保字段明确
+									saveStore(store);
+									// 更新当前闭包中的 item，以免即使重绘前再次点击出错
+									item.productId = productId;
+									item.promotionId = promotionId;
+								}
+							} else {
+								throw new Error('接口返回数据中未找到 Product ID');
+							}
+						} else {
+							throw new Error('ProductInfo 模块未就绪');
+						}
+					} catch (err) {
+						console.error('获取 Product ID 失败', err);
+						alert('无法获取 Product ID，无法进行嗅探: ' + err.message);
+						btnCheck.innerText = originalText;
+						btnCheck.disabled = false;
+						btnCheck.style.opacity = '1';
+						return;
+					}
+
+					// 恢复按钮状态
+					btnCheck.innerText = originalText;
+					btnCheck.disabled = false;
+					btnCheck.style.opacity = '1';
+				}
+
+				// 4. 执行嗅探
+				if (productId && promotionId) {
+					window.CouponSniffer.runSniff(productId, promotionId, btnCheck);
+				}
+			};
+
 			const btnDel = document.createElement('button');
 			btnDel.innerText = '删除';
 			btnDel.className = 'dm-button';
@@ -223,6 +312,7 @@
 			};
 
 			btnContainer.appendChild(btnGet);
+			btnContainer.appendChild(btnCheck);
 			btnContainer.appendChild(btnDel);
 			actionTd.appendChild(btnContainer);
 
