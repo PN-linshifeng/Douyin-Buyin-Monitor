@@ -411,6 +411,15 @@
 			const displayBlock = isExpanded ? 'block' : 'none';
 			if (tablesContainer) tablesContainer.style.display = displayVal;
 			if (adviceContainer) adviceContainer.style.display = displayBlock;
+
+			// 定位逻辑: 收起到底部，展开回顶部
+			if (!isExpanded) {
+				container.style.top = 'calc(100vh - 100px)';
+				// container.style.bottom = '20px';
+			} else {
+				// container.style.bottom = '';
+				container.style.top = '100px';
+			}
 		};
 		toggleBtn.onmousedown = (e) => e.stopPropagation();
 

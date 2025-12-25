@@ -102,6 +102,15 @@
 			isExpanded = !isExpanded;
 			toggleBtn.innerText = isExpanded ? '🔼' : '🔽';
 			content.style.display = isExpanded ? 'block' : 'none';
+
+			// 定位逻辑: 收起到底部，展开回顶部
+			if (!isExpanded) {
+				container.style.top = 'calc(100vh - 100px)';
+				// container.style.bottom = '20px';
+			} else {
+				// container.style.bottom = '';
+				container.style.top = '100px';
+			}
 		};
 
 		actionsDiv.insertBefore(toggleBtn, closeBtn);

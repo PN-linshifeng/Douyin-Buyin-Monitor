@@ -180,8 +180,8 @@
    -------------------------------------------------------------------------- */
 #dm-main-widget {
 	position: fixed;
-	right: 20px;
-	top: 150px;
+	right: 35px;
+	top: 400px;
 	z-index: 99999;
 	display: flex;
 	flex-direction: column;
