@@ -203,6 +203,39 @@
 				updateButtonState(btn, stats7.overallStatus);
 			}
 
+			// [新增] 自动缓存推荐 ('good') 商品
+			if (stats7.overallStatus === 'good') {
+				try {
+					const STORAGE_KEY = 'DM_RECOMMENDED_PRODUCTS';
+					let store = {};
+					try {
+						store = JSON.parse(localStorage.getItem(STORAGE_KEY) || '{}');
+					} catch (e) {}
+
+					// 尝试获取图片URL
+					const imgUrl =
+						promo?.base_model?.product_info?.cover ||
+						promo?.base_model?.product_info?.img_url ||
+						'';
+
+					const newItem = {
+						id: promotionId,
+						name: productName,
+						price:
+							typeof productPrice === 'number'
+								? productPrice / 100
+								: productPrice,
+						img: imgUrl,
+						createdAt: Date.now(),
+					};
+					store[promotionId] = newItem;
+					localStorage.setItem(STORAGE_KEY, JSON.stringify(store));
+					console.log(`[ProductList] 已缓存推荐商品: ${productName}`);
+				} catch (e) {
+					console.error('[ProductList] 缓存推荐商品失败', e);
+				}
+			}
+
 			return {success: true, id: promotionId, data: result};
 		} catch (e) {
 			console.error(`[分析失败] ID: ${promotionId}`, e);

@@ -1,0 +1,236 @@
+/* ==========================================================================
+   Douyin Monitor UI Styles
+   ========================================================================== */
+
+/* --------------------------------------------------------------------------
+   Variables
+   -------------------------------------------------------------------------- */
+:root {
+	--dm-primary: #1966ff;
+	--dm-success: #25c260;
+	--dm-warning: #faad14;
+	--dm-danger: #ff4d4f;
+	--dm-disabled: #999999;
+	--dm-dark-bg: #1e1e1e;
+	--dm-dark-header: #2d2d2d;
+	--dm-dark-border: #444;
+	--dm-text-light: #e0e0e0;
+}
+
+/* --------------------------------------------------------------------------
+   Buttons
+   -------------------------------------------------------------------------- */
+.dm-button {
+	transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+	cursor: pointer;
+	outline: none;
+	border: none;
+	font-weight: bold;
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	user-select: none;
+	padding: 6px 16px;
+	border-radius: 4px;
+	font-size: 14px;
+	color: white;
+	background-color: var(--dm-primary);
+}
+
+.dm-button:hover {
+	filter: brightness(1.1);
+	transform: translateY(-1px);
+	box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+}
+
+.dm-button:active {
+	filter: brightness(0.9);
+	transform: translateY(0);
+}
+
+.dm-button:disabled {
+	filter: grayscale(0.6);
+	cursor: not-allowed;
+	transform: none;
+	opacity: 0.7;
+}
+
+/* Button Variants */
+.dm-btn-primary {
+	background-color: var(--dm-primary);
+}
+.dm-btn-success {
+	background-color: var(--dm-success);
+}
+.dm-btn-warning {
+	background-color: var(--dm-warning);
+}
+.dm-btn-danger {
+	background-color: var(--dm-danger);
+}
+.dm-btn-small {
+	padding: 4px 12px;
+	font-size: 12px;
+	height: 28px;
+}
+
+/* --------------------------------------------------------------------------
+   Dark Theme Popup
+   -------------------------------------------------------------------------- */
+.dm-dark-popup {
+	position: fixed;
+	top: 50px;
+	left: 50%;
+	transform: translate(-50%, 0%);
+	z-index: 10001;
+	display: block;
+	background-color: var(--dm-dark-bg);
+	color: var(--dm-text-light);
+	padding: 20px;
+	border-radius: 8px;
+	box-shadow: 0 4px 20px rgba(0, 0, 0, 0.4);
+	width: 90%;
+	max-width: 1000px;
+	max-height: 90vh;
+	overflow-y: auto;
+	font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+}
+
+.dm-popup-header {
+	display: flex;
+	justify-content: space-between;
+	align-items: center;
+	margin-bottom: 20px;
+	border-bottom: 1px solid var(--dm-dark-border);
+	padding-bottom: 10px;
+	cursor: move;
+}
+
+.dm-popup-title {
+	margin: 0;
+	color: #fff;
+	font-size: 18px;
+	font-weight: 600;
+}
+
+.dm-popup-close {
+	background: transparent;
+	border: none;
+	color: #ccc;
+	font-size: 18px;
+	cursor: pointer;
+	padding: 4px 8px;
+	line-height: 1;
+}
+
+.dm-popup-close:hover {
+	color: #fff;
+	background: rgba(255, 255, 255, 0.1);
+	border-radius: 4px;
+}
+
+/* --------------------------------------------------------------------------
+   Tables (Dark)
+   -------------------------------------------------------------------------- */
+.dm-dark-table {
+	width: 100%;
+	border-collapse: collapse;
+	font-size: 14px;
+}
+
+.dm-dark-table th {
+	padding: 12px 10px;
+	border: 1px solid var(--dm-dark-border);
+	color: var(--dm-text-light);
+	text-align: left;
+	background-color: var(--dm-dark-header);
+	font-weight: 600;
+}
+
+.dm-dark-table td {
+	padding: 10px;
+	border: 1px solid var(--dm-dark-border);
+	color: #cccccc;
+	vertical-align: middle;
+}
+
+.dm-dark-table tr:hover td {
+	background-color: rgba(255, 255, 255, 0.02);
+}
+
+/* --------------------------------------------------------------------------
+   Main Widget
+   -------------------------------------------------------------------------- */
+#dm-main-widget {
+	position: fixed;
+	right: 20px;
+	top: 150px;
+	z-index: 99999;
+	display: flex;
+	flex-direction: column;
+	align-items: center;
+	gap: 10px;
+	transition: all 0.3s ease;
+}
+
+#dm-widget-header {
+	width: 60px;
+	height: 60px;
+	border-radius: 50%;
+	overflow: hidden;
+	box-shadow: 0 4px 15px rgba(0, 0, 0, 0.2);
+	background: white;
+	cursor: pointer;
+	transition: transform 0.3s ease;
+	border: 2px solid white;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	animation: dm-breathe 3s infinite ease-in-out;
+	z-index: 100;
+}
+
+@keyframes dm-breathe {
+	0%,
+	100% {
+		transform: scale(1);
+		box-shadow: 0 4px 15px rgba(25, 102, 255, 0.2);
+	}
+	50% {
+		transform: scale(1.08);
+		box-shadow: 0 8px 25px rgba(25, 102, 255, 0.4);
+	}
+}
+
+#dm-widget-header:hover {
+	transform: scale(1.1);
+}
+
+#dm-widget-panel {
+	background: white;
+	border-radius: 12px;
+	box-shadow: 0 8px 25px rgba(0, 0, 0, 0.15);
+	display: flex;
+	flex-direction: column;
+	min-width: 200px;
+	transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+	opacity: 1;
+	transform: translateY(0);
+	border: 1px solid #f0f0f0;
+	overflow: hidden;
+}
+
+#dm-widget-body {
+	padding: 24px;
+	display: flex;
+	flex-direction: column;
+	gap: 10px;
+}
+
+#dm-widget-body .dm-button {
+	width: 100%;
+	margin: 0;
+	white-space: nowrap;
+	overflow: hidden;
+	text-overflow: ellipsis;
+}

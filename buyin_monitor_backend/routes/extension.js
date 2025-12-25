@@ -146,6 +146,7 @@ router.post('/login', async (req, res) => {
 				`${baseUrl}/extension/product_info.js`,
 				`${baseUrl}/extension/product_list.js`,
 				`${baseUrl}/extension/coupon_sniffer.js`,
+				`${baseUrl}/extension/recommendation_manager_patch.js`,
 			],
 		});
 	} catch (error) {
@@ -219,6 +220,7 @@ router.get('/check-auth', async (req, res) => {
 						`${baseUrl}/extension/product_info.js`,
 						`${baseUrl}/extension/product_list.js`,
 						`${baseUrl}/extension/coupon_sniffer.js`,
+						`${baseUrl}/extension/recommendation_manager_patch.js`,
 					],
 				});
 			}
@@ -238,6 +240,7 @@ router.get('/check-auth', async (req, res) => {
 				`${baseUrl}/extension/product_info.js`,
 				`${baseUrl}/extension/product_list.js`,
 				`${baseUrl}/extension/coupon_sniffer.js`,
+				`${baseUrl}/extension/recommendation_manager.js`,
 			],
 		});
 	}

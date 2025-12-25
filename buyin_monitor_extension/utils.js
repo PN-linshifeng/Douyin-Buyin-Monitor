@@ -39,6 +39,57 @@
 			});
 		},
 
+		/**
+		 * 让元素可拖拽
+		 * @param {HTMLElement} element 要移动的元素
+		 * @param {HTMLElement} handle 触发拖拽的手柄元素
+		 */
+		makeDraggable: function (element, handle) {
+			handle = handle || element;
+			handle.style.cursor = 'move';
+
+			let isDragging = false;
+			let startX, startY, initialLeft, initialTop;
+
+			handle.onmousedown = function (e) {
+				// 如果点击的是按钮或链接，不触发拖拽
+				if (['BUTTON', 'A', 'INPUT'].includes(e.target.tagName)) return;
+
+				e.preventDefault();
+				isDragging = true;
+				startX = e.clientX;
+				startY = e.clientY;
+
+				const rect = element.getBoundingClientRect();
+				initialLeft = rect.left;
+				initialTop = rect.top;
+
+				// 切换为 Fixed 定位以便控制
+				element.style.position = 'fixed';
+				element.style.margin = '0';
+				element.style.transform = 'none'; // 清除 transform 居中
+				element.style.left = initialLeft + 'px';
+				element.style.top = initialTop + 'px';
+
+				document.addEventListener('mousemove', onMouseMove);
+				document.addEventListener('mouseup', onMouseUp);
+			};
+
+			function onMouseMove(e) {
+				if (!isDragging) return;
+				const dx = e.clientX - startX;
+				const dy = e.clientY - startY;
+				element.style.left = initialLeft + dx + 'px';
+				element.style.top = initialTop + dy + 'px';
+			}
+
+			function onMouseUp() {
+				isDragging = false;
+				document.removeEventListener('mousemove', onMouseMove);
+				document.removeEventListener('mouseup', onMouseUp);
+			}
+		},
+
 		init: function () {
 			// 1. 监听浏览器事件
 			window.addEventListener('popstate', () => this.checkAll());

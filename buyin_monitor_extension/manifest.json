@@ -16,6 +16,7 @@
 		{
 			"matches": ["*://buyin.jinritemai.com/*"],
 			"js": ["plugins/fp.js", "ui.js", "content.js"],
+			"css": ["ui.css"],
 			"run_at": "document_end"
 		},
 		{
