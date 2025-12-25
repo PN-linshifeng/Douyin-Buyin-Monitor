@@ -253,12 +253,21 @@
 			e.preventDefault();
 		};
 
-		function onMouseMove(e) {
-			if (!isDragging) return;
-			const dx = e.clientX - startX;
-			const dy = e.clientY - startY;
+		let rafId = null;
+		let currentE = null; // Store latest event
 
-			if (Math.abs(dx) > moveThreshold || Math.abs(dy) > moveThreshold) {
+		function updatePosition() {
+			if (!isDragging || !currentE) {
+				rafId = null;
+				return;
+			}
+			const dx = currentE.clientX - startX;
+			const dy = currentE.clientY - startY;
+
+			if (
+				!hasMoved &&
+				(Math.abs(dx) > moveThreshold || Math.abs(dy) > moveThreshold)
+			) {
 				hasMoved = true;
 			}
 
@@ -266,13 +275,28 @@
 				element.style.left = initialLeft + dx + 'px';
 				element.style.top = initialTop + dy + 'px';
 			}
+			rafId = null;
+		}
+
+		function onMouseMove(e) {
+			if (!isDragging) return;
+			currentE = e; // Always capture the latest event
+
+			if (!rafId) {
+				rafId = requestAnimationFrame(updatePosition);
+			}
 		}
 
 		function onMouseUp() {
 			isDragging = false;
+			if (rafId) {
+				cancelAnimationFrame(rafId);
+				rafId = null;
+			}
 			document.removeEventListener('mousemove', onMouseMove);
 			document.removeEventListener('mouseup', onMouseUp);
 			if (hasMoved && onDragEnd) {
+				// Ensure we use the latest position
 				onDragEnd(element.style.left, element.style.top);
 			}
 		}

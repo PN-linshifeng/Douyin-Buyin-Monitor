@@ -75,16 +75,36 @@
 				document.addEventListener('mouseup', onMouseUp);
 			};
 
-			function onMouseMove(e) {
-				if (!isDragging) return;
-				const dx = e.clientX - startX;
-				const dy = e.clientY - startY;
+			let rafId = null;
+			let currentE = null; // Store latest event to calculate safely
+
+			function updatePosition() {
+				if (!isDragging || !currentE) {
+					rafId = null;
+					return;
+				}
+				const dx = currentE.clientX - startX;
+				const dy = currentE.clientY - startY;
 				element.style.left = initialLeft + dx + 'px';
 				element.style.top = initialTop + dy + 'px';
+				rafId = null;
+			}
+
+			function onMouseMove(e) {
+				if (!isDragging) return;
+				currentE = e; // Update latest event reference
+
+				if (!rafId) {
+					rafId = requestAnimationFrame(updatePosition);
+				}
 			}
 
 			function onMouseUp() {
 				isDragging = false;
+				if (rafId) {
+					cancelAnimationFrame(rafId);
+					rafId = null;
+				}
 				document.removeEventListener('mousemove', onMouseMove);
 				document.removeEventListener('mouseup', onMouseUp);
 			}
