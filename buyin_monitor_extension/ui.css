@@ -11,6 +11,8 @@
 	--dm-warning: #faad14;
 	--dm-danger: #ff4d4f;
 	--dm-disabled: #999999;
+	--dm-success-light: #95de64;
+	--dm-primary-light: #69c0ff;
 	--dm-dark-bg: #1e1e1e;
 	--dm-dark-header: #2d2d2d;
 	--dm-dark-border: #444;
@@ -68,10 +70,23 @@
 .dm-btn-danger {
 	background-color: var(--dm-danger);
 }
+.dm-btn-success-light {
+	background-color: var(--dm-success-light);
+	color: #fff; /* Ensure text is readable */
+}
+.dm-btn-primary-light {
+	background-color: var(--dm-primary-light);
+	color: #fff;
+}
 .dm-btn-small {
 	padding: 4px 12px;
 	font-size: 12px;
 	height: 28px;
+}
+.dm-btn-large {
+	padding: 6px 16px;
+	font-size: 14px;
+	height: 40px;
 }
 
 /* --------------------------------------------------------------------------
@@ -81,6 +96,8 @@
 	position: fixed;
 	top: 50px;
 	left: 50%;
+	max-width: 1200px;
+	max-height: 95vh;
 	transform: translate(-50%, 0%);
 	z-index: 10001;
 	display: block;
@@ -188,6 +205,12 @@
 	justify-content: center;
 	animation: dm-breathe 3s infinite ease-in-out;
 	z-index: 100;
+}
+#dm-widget-footer {
+	width: 100%;
+	text-align: center;
+	padding: 10px 24px;
+	border-top: 1px solid #e2e2e2;
 }
 
 @keyframes dm-breathe {
