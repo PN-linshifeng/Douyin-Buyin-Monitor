@@ -389,11 +389,27 @@
 			const promotionId = promo.promotion_id;
 			if (!promotionId) continue;
 
-			// 检查 Map 中是否已存在（去重）
-			if (batchResultsMap.has(promotionId)) continue;
-
 			// 查找对应的按钮 (如果存在)
 			let targetBtn = btnMap.get(promotionId);
+
+			// 检查 Map 中是否已存在（去重）
+			if (batchResultsMap.has(promotionId)) {
+				// 如果已有结果，尝试更新 UI 后跳过
+				const cachedData = batchResultsMap.get(promotionId);
+				if (
+					targetBtn &&
+					cachedData &&
+					cachedData.results &&
+					cachedData.results[0] &&
+					cachedData.results[0].stats
+				) {
+					const stats = cachedData.results[0].stats;
+					updateButtonState(targetBtn, stats.overallStatus);
+					console.log(`[批量分析] 跳过重复并更新 UI: ${promotionId}`);
+				}
+				continue;
+			}
+
 			const promoName = promo?.base_model?.product_info?.name || promotionId;
 
 			// 执行分析
