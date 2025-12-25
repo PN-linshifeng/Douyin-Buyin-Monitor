@@ -342,6 +342,8 @@
         <label>过期时间 (格式: YYYY-MM-DD)</label>
         <input type="date" id="modalExpire">
         <div id="quickSelectGroup">
+          <button type="button" onclick="setExpire(1)" class="btn btn-default quick-btn">1天</button>
+          <button type="button" onclick="setExpire(2)" class="btn btn-default quick-btn">2天</button>
           <button type="button" onclick="setExpire(3)" class="btn btn-default quick-btn">3天</button>
           <button type="button" onclick="setExpire(7)" class="btn btn-default quick-btn">一周</button>
           <button type="button" onclick="setExpire(90)" class="btn btn-default quick-btn">一季度</button>
@@ -375,6 +377,8 @@
         <label>续费后过期时间 (格式: YYYY-MM-DD)</label>
         <input type="date" id="renewNewExpire">
         <div id="renewQuickGroup">
+          <button type="button" onclick="setRenewDuration(1)" class="btn btn-default quick-btn">1天</button>
+          <button type="button" onclick="setRenewDuration(2)" class="btn btn-default quick-btn">2天</button>
           <button type="button" onclick="setRenewDuration(3)" class="btn btn-default quick-btn">3天</button>
           <button type="button" onclick="setRenewDuration(7)" class="btn btn-default quick-btn">一周</button>
           <button type="button" onclick="setRenewDuration(30)" class="btn btn-default quick-btn">一个月</button>

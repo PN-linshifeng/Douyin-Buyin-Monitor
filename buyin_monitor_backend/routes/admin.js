@@ -112,7 +112,7 @@ router.post('/users', requireAdmin, async (req, res) => {
 		// 查重
 		const exists = users.some((u) => {
 			try {
-				return decrypt(u.phone) === phone;
+				return decrypt(u.phone) === phone.trim();
 			} catch (e) {
 				return false;
 			}
@@ -121,7 +121,7 @@ router.post('/users', requireAdmin, async (req, res) => {
 			return res.status(400).json({success: false, message: '该手机号已存在'});
 
 		const newUser = await User.create({
-			phone: encrypt(phone),
+			phone: encrypt(phone.trim()),
 			buyinId: '',
 			expirationTime: expirationTime || '',
 		});
