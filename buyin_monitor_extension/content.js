@@ -223,7 +223,7 @@
 		return '';
 	}
 
-	function makeElementDraggable(element, handle) {
+	function makeElementDraggable(element, handle, onDragEnd) {
 		handle = handle || element;
 		let isDragging = false;
 		let startX, startY, initialLeft, initialTop;
@@ -272,6 +272,9 @@
 			isDragging = false;
 			document.removeEventListener('mousemove', onMouseMove);
 			document.removeEventListener('mouseup', onMouseUp);
+			if (hasMoved && onDragEnd) {
+				onDragEnd(element.style.left, element.style.top);
+			}
 		}
 
 		// 返回是否发生了移动，用于逻辑判断
@@ -308,8 +311,26 @@
 		panel.appendChild(body);
 		panel.appendChild(footer);
 
+		// Restore position
+		const savedPos = localStorage.getItem('dm_widget_position');
+		if (savedPos) {
+			try {
+				const pos = JSON.parse(savedPos);
+				if (pos.left && pos.top) {
+					widget.style.left = pos.left;
+					widget.style.top = pos.top;
+					widget.style.right = 'auto';
+					widget.style.bottom = 'auto';
+				}
+			} catch (e) {
+				console.error('Failed to restore widget position', e);
+			}
+		}
+
 		// Drag 逻辑
-		const getHasMoved = makeElementDraggable(widget, header);
+		const getHasMoved = makeElementDraggable(widget, header, (left, top) => {
+			localStorage.setItem('dm_widget_position', JSON.stringify({left, top}));
+		});
 
 		// Toggle logic (仅在没有大幅度拖拽时触发)
 		header.onclick = (e) => {
