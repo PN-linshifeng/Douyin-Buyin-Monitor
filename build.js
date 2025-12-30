@@ -30,6 +30,24 @@ const OBFUSCATOR_OPTIONS = {
 	target: 'browser-no-eval', // Service workers don't support eval
 };
 
+// Configuration for minification (Compression + Comment Removal only)
+const MINIFY_OPTIONS = {
+	compact: true,
+	controlFlowFlattening: false,
+	deadCodeInjection: false,
+	debugProtection: false,
+	disableConsoleOutput: true,
+	identifierNamesGenerator: 'mangled',
+	log: false,
+	renameGlobals: false,
+	rotateStringArray: false,
+	selfDefending: false,
+	stringArray: false,
+	transformObjectKeys: false,
+	unicodeEscapeSequence: false,
+	target: 'browser-no-eval',
+};
+
 // Filter function to exclude node_modules, .git, .env, .DS_Store
 const copyFilter = (src, dest) => {
 	const basename = path.basename(src);
@@ -78,7 +96,7 @@ async function build() {
 
 	// 4. Process JS files in buyin_monitor_extension (root of that dir)
 	const distExtensionDir = path.join(DIST_DIR, EXTENSION_SRC_NAME);
-	await processDirectory(distExtensionDir, true); // true = isExtension
+	await processDirectory(distExtensionDir, true, false); // true = isExtension, false = enableObfuscation
 
 	// 5. Process JS files in buyin_monitor_backend/public/extension
 	const distBackendExtensionDir = path.join(
@@ -86,12 +104,16 @@ async function build() {
 		BACKEND_SRC_NAME,
 		'public/extension'
 	);
-	await processDirectory(distBackendExtensionDir, false);
+	await processDirectory(distBackendExtensionDir, false, true);
 
 	console.log('Build complete! Output in dist/');
 }
 
-async function processDirectory(dirPath, isExtension = false) {
+async function processDirectory(
+	dirPath,
+	isExtension = false,
+	enableObfuscation = true
+) {
 	if (!(await fs.pathExists(dirPath))) {
 		console.warn(`Directory not found: ${dirPath}`);
 		return;
@@ -110,34 +132,42 @@ async function processDirectory(dirPath, isExtension = false) {
 				continue;
 			}
 			// 递归处理其他目录
-			await processDirectory(fullPath, isExtension);
+			await processDirectory(fullPath, isExtension, enableObfuscation);
 		} else if (file.endsWith('.js')) {
-			await processFile(fullPath, isExtension);
+			await processFile(fullPath, isExtension, enableObfuscation);
 		}
 	}
 }
 
-async function processFile(filePath, isExtension = false) {
+async function processFile(
+	filePath,
+	isExtension = false,
+	enableObfuscation = true
+) {
+	// If obfuscation is not enabled, we skip all processing (including console removal and URL replacement)
+	// keeping the file exactly as it is in the source.
+	// if (!enableObfuscation) {
+	// 	return;
+	// }
+
 	try {
-		console.log(`Processing: ${path.relative(DIST_DIR, filePath)}`);
+		console.log(
+			`Processing (${
+				enableObfuscation ? 'Obfuscate' : 'Minify'
+			}): ${path.relative(DIST_DIR, filePath)}`
+		);
 		let content = await fs.readFile(filePath, 'utf8');
 
 		// 1. Remove all console statements (log, debug, info, warn, error, etc.)
-		// Regex to match console.xxx(...) including multi-line
-		// Matches: console.method ( ... ) ;?
 		content = content.replace(
 			/console\.\w+\s*\((?:[^)(]+|\((?:[^)(]+|\([^)(]*\))*\))*\)\s*;?/g,
 			''
 		);
 
-		// 2. Remove "console debug" comments (User said: "删除console debug 注释")
-		// This is tricky. I'll remove single line comments containing "console debug" (case insensitive)
+		// 2. Remove "console debug" comments
 		content = content.replace(/\/\/.*console\s*debug.*/gi, '');
-		// Also remove block comments containing it? Obfuscator removes all comments anyway.
-		// Javascript-obfuscator removes comments by default unless options.comments is true.
-		// So generic comment removal is handled by obfuscator.
 
-		// 3. Replace Backend URL (User Request: Local -> Remote)
+		// 3. Replace Backend URL
 		if (content.includes('http://127.0.0.1:3308')) {
 			console.log(`Replacing backend URL in ${path.basename(filePath)}...`);
 			content = content.replace(
@@ -146,7 +176,12 @@ async function processFile(filePath, isExtension = false) {
 			);
 		}
 
-		// 4. Pre-obfuscation Fix for background.js
+		// 4. Obfuscate / Minify
+		const currentOptions = enableObfuscation
+			? OBFUSCATOR_OPTIONS
+			: MINIFY_OPTIONS;
+
+		// Pre-obfuscation Fix for background.js
 		// Prevent obfuscation of the function injected via executeScript
 		if (path.basename(filePath) === 'background.js') {
 			console.log('Applying pre-obfuscation patch to background.js...');
@@ -160,10 +195,10 @@ async function processFile(filePath, isExtension = false) {
 			);
 		}
 
-		// 4. Obfuscate
+		// Execute Obfuscation or Minification
 		const obfuscationResult = JavaScriptObfuscator.obfuscate(
 			content,
-			OBFUSCATOR_OPTIONS
+			currentOptions
 		);
 		let obfuscatedCode = obfuscationResult.getObfuscatedCode();
 
@@ -171,12 +206,6 @@ async function processFile(filePath, isExtension = false) {
 		// If this is background.js, replace potential window references in boilerplate with self
 		if (path.basename(filePath) === 'background.js') {
 			console.log('Patching background.js for Service Worker environment...');
-			// Naive but effective for obfuscator boilerplate: replace window with self
-			// Only if original code didn't use window (which it shouldn't for SW)
-			// We use a global replace for 'window' -> 'self'
-			// Note: This might break if strings contain 'window', but in obfuscated code strings are usually in string array.
-			// However, obfuscator might put window in the logic.
-			// Warning: this is aggressive.
 			obfuscatedCode = obfuscatedCode.replace(/window/g, 'self');
 		}
 
