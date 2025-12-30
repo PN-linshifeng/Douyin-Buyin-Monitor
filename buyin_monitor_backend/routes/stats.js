@@ -266,7 +266,7 @@ const DEFAULT_SELECTION_CONFIG = {
 		bad: {
 			html: '<span style="color:#ff4d4f; font-weight:bold;">⚠️ 出单少且亏，请谨慎选择！</span>',
 		},
-		normal: {html: '<span></span>'},
+		normal: {html: '<span style="color:#333; font-weight:bold;">正常</span>'},
 	},
 };
 
@@ -306,7 +306,7 @@ function evaluateStats(metrics, config) {
 
 	const advice = [];
 	const metricStatuses = [];
-	const statusCounts = {good: 0, bad: 0, passed: 0};
+	const statusCounts = {good: 0, bad: 0, passed: 0, normal: 0};
 	const colors = {}; // type/target -> color
 
 	const matchedTargets = new Set();

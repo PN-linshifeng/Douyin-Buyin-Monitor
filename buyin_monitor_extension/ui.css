@@ -78,6 +78,10 @@
 	background-color: var(--dm-primary-light);
 	color: #fff;
 }
+.dm-btn-secondary {
+	background-color: #6c757d; /* Standard secondary gray */
+	color: #fff;
+}
 .dm-btn-small {
 	padding: 4px 12px;
 	font-size: 12px;

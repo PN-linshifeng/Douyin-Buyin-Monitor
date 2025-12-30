@@ -12,6 +12,7 @@
 		rules: [], // { target, op, val, msg, color, status }
 		overall_rules: [], // { result, criteria: {good, passed, bad} }
 	};
+	let pendingConditions = [];
 
 	// 辅助函数：通过 content.js 代理发送 API 请求
 	function callApi(endpoint, body) {
@@ -222,6 +223,7 @@
 			// Criteria (e.g., Good >= 3)
 			if (c.good) desc.push(`Good >= ${c.good}`);
 			if (c.passed) desc.push(`Passed >= ${c.passed}`);
+			if (c.normal) desc.push(`Normal >= ${c.normal}`);
 			if (c.bad) desc.push(`Bad >= ${c.bad}`);
 
 			const info = document.createElement('div');
@@ -229,7 +231,13 @@
 			info.innerHTML = `
                 满足: [${desc.join(' , ')}] => 
                 <strong style="color: ${
-									rule.result === 'bad' ? '#ff4d4f' : '#25c260'
+									rule.result === 'bad'
+										? '#ff4d4f'
+										: rule.result === 'good'
+										? '#25c260'
+										: rule.result === 'passed'
+										? '#faad14'
+										: '#ffffff'
 								}">${rule.result}</strong>
             `;
 
@@ -360,12 +368,70 @@
                         <option value="bad" style="color:var(--dm-danger)">Bad (Red)</option>
                         <option value="passed" style="color:var(--dm-warning)">Passed (Orange)</option>
                         <option value="good" style="color:var(--dm-success)">Good (Green)</option>
+                        <option value="normal" style="color:#ffffff">Normal (White)</option>
                     </select>
                 </div>
             `;
 
+			// 待添加条件列表显示
+			const pendingListDiv = document.createElement('div');
+			pendingListDiv.id = 'cr-pending-list';
+			pendingListDiv.style.marginBottom = '10px';
+			pendingListDiv.style.padding = '5px';
+			pendingListDiv.style.border = '1px dashed rgba(255, 255, 255, 0.2)';
+			pendingListDiv.style.display = 'none'; // 初始隐藏
+			pendingListDiv.style.width = '100%';
+			pendingListDiv.style.gap = '10px';
+
+			// 渲染待办条件的函数
+			function renderPending() {
+				pendingListDiv.innerHTML = '';
+				if (pendingConditions.length > 0) {
+					pendingListDiv.style.display = 'flex';
+					pendingConditions.forEach((cond, idx) => {
+						const tag = document.createElement('span');
+						tag.style.display = 'block';
+						tag.style.width = 'fit-content';
+						tag.style.background = 'rgba(78, 161, 255, 0.2)';
+						tag.style.border = '1px solid #4ea1ff';
+						tag.style.borderRadius = '4px';
+						tag.style.padding = '2px 6px';
+						tag.style.fontSize = '12px';
+						tag.innerHTML = `${getFieldName(cond.target)} ${cond.op} ${
+							cond.val
+						} <span style="cursor:pointer;margin-left:5px;font-weight:bold;">&times;</span>`;
+						tag.querySelector('span').onclick = () => {
+							pendingConditions.splice(idx, 1);
+							renderPending();
+						};
+						pendingListDiv.appendChild(tag);
+					});
+				} else {
+					pendingListDiv.style.display = 'none';
+				}
+			}
+
+			const addConditionBtn = document.createElement('button');
+			addConditionBtn.innerText = '➕ 添加条件';
+			addConditionBtn.className = 'dm-button dm-btn-secondary'; // Secondary style
+			addConditionBtn.style.height = '36px';
+			addConditionBtn.onclick = () => {
+				const target = document.getElementById('cr-target').value;
+				const op = document.getElementById('cr-op').value;
+				const val = document.getElementById('cr-val').value;
+
+				if (!val) {
+					alert('请输入阈值');
+					return;
+				}
+				pendingConditions.push({target, op, val});
+				renderPending();
+				// Clear only val to allow easy adding of more conditions for same target, or switch target
+				document.getElementById('cr-val').value = '';
+			};
+
 			const addRuleBtn = document.createElement('button');
-			addRuleBtn.innerText = '添加规则';
+			addRuleBtn.innerText = '保存规则'; // Changed text
 			addRuleBtn.className = 'dm-button dm-btn-primary';
 			addRuleBtn.style.height = '36px';
 			addRuleBtn.onclick = () => {
@@ -380,25 +446,55 @@
 						? '#ff4d4f'
 						: status === 'good'
 						? '#25c260'
-						: '#faad14';
-
-				if (!val) {
-					alert('请输入阈值');
-					return;
-				}
+						: status === 'passed'
+						? '#faad14'
+						: '#ffffff';
 
 				if (!currentConfig.rules) currentConfig.rules = [];
-				currentConfig.rules.push({
-					target,
-					op,
-					val,
-					msg,
-					color,
-					status,
-				});
+
+				if (pendingConditions.length > 0) {
+					// Complex rule
+					currentConfig.rules.push({
+						target, // Primary target for key/color
+						conditions: [...pendingConditions],
+						msg,
+						color,
+						status,
+					});
+					pendingConditions = []; // Clear
+					renderPending();
+				} else {
+					// Simple rule
+					if (!val) {
+						alert('请输入阈值');
+						return;
+					}
+					currentConfig.rules.push({
+						target,
+						op,
+						val,
+						msg,
+						color,
+						status,
+					});
+				}
 				renderRulesList(rulesListDiv);
 			};
-			ruleForm.appendChild(addRuleBtn);
+
+			ruleForm.appendChild(pendingListDiv); // Add pending list above buttons
+			// Re-arrange buttons container
+			const btnContainer = document.createElement('div');
+			btnContainer.style.width = '100%';
+			btnContainer.style.display = 'flex';
+			btnContainer.style.gap = '10px';
+			btnContainer.style.justifyContent = 'flex-end';
+			btnContainer.style.marginTop = '10px';
+
+			// Make ruleForm content wrap properly
+			// We remove buttons from direct append and put them in btnContainer
+			btnContainer.appendChild(addConditionBtn);
+			btnContainer.appendChild(addRuleBtn);
+			ruleForm.appendChild(btnContainer);
 
 			const rulesListDiv = document.createElement('div');
 			rulesListDiv.className = 'dm-rule-list';
@@ -423,6 +519,10 @@
                     <label>Passed 数量 >=</label>
                     <input id="or-passed" type="number" class="dm-input" value="0">
                 </div>
+                <div class="dm-form-group" style="flex:1;">
+                    <label>Normal 数量 >=</label>
+                    <input id="or-normal" type="number" class="dm-input" value="0">
+                </div>
                  <div class="dm-form-group" style="flex:1;">
                     <label>Bad 数量 >=</label>
                     <input id="or-bad" type="number" class="dm-input" value="0">
@@ -432,6 +532,7 @@
                     <select id="or-result" class="dm-input">
                         <option value="good" style="color:var(--dm-success)">推荐 (Good)</option>
                         <option value="passed" style="color:var(--dm-warning)">通过 (Passed)</option>
+                        <option value="normal" style="color:#ffffff">普通 (Normal)</option>
                         <option value="bad" style="color:var(--dm-danger)">不推荐 (Bad)</option>
                     </select>
                 </div>
@@ -444,10 +545,11 @@
 			addOverallBtn.onclick = () => {
 				const g = parseInt(document.getElementById('or-good').value) || 0;
 				const p = parseInt(document.getElementById('or-passed').value) || 0;
+				const n = parseInt(document.getElementById('or-normal').value) || 0;
 				const b = parseInt(document.getElementById('or-bad').value) || 0;
 				const res = document.getElementById('or-result').value;
 
-				if (g === 0 && p === 0 && b === 0) {
+				if (g === 0 && p === 0 && n === 0 && b === 0) {
 					alert('请至少设置一个条件数量');
 					return;
 				}
@@ -458,6 +560,7 @@
 					criteria: {
 						good: g,
 						passed: p,
+						normal: n,
 						bad: b,
 					},
 				});
