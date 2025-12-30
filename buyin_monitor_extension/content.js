@@ -76,6 +76,56 @@
 				);
 			}
 		}
+
+		if (event.data.type === 'DOUYIN_MONITOR_API_CALL') {
+			const {requestId, payload} = event.data; // payload: { url, method, body }
+			try {
+				const token = localStorage.getItem('dm_token');
+				const fingerprint = await getFingerprint();
+
+				// Ensure URL is relative to BACKEND_URL if not absolute
+				let targetUrl = payload.url;
+				if (!targetUrl.startsWith('http')) {
+					targetUrl = `${BACKEND_URL}${payload.url}`;
+				}
+
+				const response = await sendProxyRequest(
+					targetUrl,
+					payload.method || 'POST',
+					{
+						'Content-Type': 'application/json',
+						Authorization: `Bearer ${token}`,
+						'x-device-fingerprint': fingerprint,
+					},
+					payload.body
+				);
+
+				const apiResult = response.data || {};
+				const isSuccess = response.success && apiResult.success;
+
+				window.postMessage(
+					{
+						type: 'DOUYIN_MONITOR_FETCH_RESULT',
+						requestId: requestId,
+						success: isSuccess,
+						data: apiResult.data || apiResult, // Allow flexibility
+						error: apiResult.message || response.error || 'API Request Failed',
+					},
+					'*'
+				);
+			} catch (e) {
+				console.error('[抖音选品助手] API 代理请求错误:', e);
+				window.postMessage(
+					{
+						type: 'DOUYIN_MONITOR_FETCH_RESULT',
+						requestId,
+						success: false,
+						error: e.message,
+					},
+					'*'
+				);
+			}
+		}
 	});
 
 	// ===========================

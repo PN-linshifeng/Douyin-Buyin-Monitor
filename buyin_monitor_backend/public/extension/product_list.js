@@ -527,6 +527,8 @@
 		const mountBtn = () => {
 			const container = document.getElementById('dm-widget-body');
 			if (container) {
+				// [New] Inject Config Button
+				// Handled by custom_rules.js auto-mount logic
 				container.appendChild(btn);
 			} else {
 				setTimeout(mountBtn, 500);

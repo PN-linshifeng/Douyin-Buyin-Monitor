@@ -23,6 +23,9 @@ const User = sequelize.define(
 			type: DataTypes.STRING, // Keeping as string to match existing logic, or can convert to DATE.
 			// Existing logic uses new Date(user.expirationTime), so string is fine if ISO formatted.
 		},
+		selectionConfig: {
+			type: DataTypes.TEXT, // Store JSON string of user's custom selection rules
+		},
 	},
 	{
 		timestamps: true, // Adds createdAt and updatedAt automatically

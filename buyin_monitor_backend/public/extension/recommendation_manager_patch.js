@@ -53,7 +53,6 @@
 			// 使用自定义颜色 (例如紫色) 区分
 			// btn.style.cssText = window.DM_UI.getButtonStyle('#722ed1', true);
 			btn.style.setProperty('width', '100%', 'important');
-			btn.style.marginBottom = '6px';
 		}
 
 		btn.onclick = showPopup;

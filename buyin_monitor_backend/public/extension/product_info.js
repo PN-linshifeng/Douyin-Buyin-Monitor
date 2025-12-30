@@ -126,22 +126,40 @@
 	function fetchBackendStats(payload) {
 		return new Promise((resolve, reject) => {
 			const requestId = Date.now() + '_' + Math.random();
-			pendingRequests.set(requestId, {resolve, reject});
+			const handler = (event) => {
+				if (
+					event.source === window &&
+					event.data.type === 'DOUYIN_MONITOR_FETCH_RESULT' &&
+					event.data.requestId === requestId
+				) {
+					window.removeEventListener('message', handler);
+					if (event.data.success) {
+						resolve(event.data.data);
+					} else {
+						reject(new Error(event.data.error));
+					}
+				}
+			};
 
+			window.addEventListener('message', handler);
+
+			// Use the new Generic API Call
 			window.postMessage(
 				{
-					type: 'DOUYIN_MONITOR_CALCULATE_STATS',
+					type: 'DOUYIN_MONITOR_API_CALL',
 					requestId,
-					payload,
+					payload: {
+						url: '/api/extension/get_promotion_status',
+						method: 'POST',
+						body: payload,
+					},
 				},
 				'*'
 			);
 
 			setTimeout(() => {
-				if (pendingRequests.has(requestId)) {
-					pendingRequests.delete(requestId);
-					reject(new Error('计算请求超时'));
-				}
+				window.removeEventListener('message', handler);
+				reject(new Error('计算请求超时'));
 			}, 15000);
 		});
 	}
@@ -166,7 +184,8 @@
 			.join('');
 
 		return `
-			<table class="dm-dark-table" style="margin-bottom: 20px;">
+			<div style="margin-bottom: 20px; overflow-x: auto;">
+                <table class="dm-dark-table">
 				<thead>
 					<tr>
 						<th style="width: 15%;">${days}天</th>
@@ -178,56 +197,69 @@
 					</tr>
 				</thead>
 				<tbody style="text-align: center;">
+				<tbody style="text-align: center;">
 					<tr>
-						<td rowspan="5" style="color: #ff8888; font-weight: bold;">总销量: ${totalSales}</td>
-						<td>${rowCard.name}</td>
-						<td>${rowCard.vol}</td>
-						<td>${rowCard.share}</td>
-						<td style="color: ${rowCard.dailyColor || '#cccccc'}; font-weight: bold;">${
-			rowCard.daily
-		}</td>
-						<td>${rowCard.price}</td>
+						<td rowspan="5" style="${
+							stats.totalSalesColor ? `color: ${stats.totalSalesColor};` : ''
+						} font-weight: bold;">总销量: ${totalSales}</td>
+						<td style="color: #4ea1ff;">${rowCard.name}</td>
+						<td style="${rowCard.volStyle || ''}">${rowCard.vol}</td>
+						<td style="${rowCard.shareStyle || ''}">${rowCard.share}</td>
+						<td style="${
+							rowCard.dailyStyle ||
+							(rowCard.dailyColor
+								? `color:${rowCard.dailyColor}; font-weight:bold;`
+								: '')
+						}">${rowCard.daily}</td>
+						<td style="${rowCard.priceStyle || ''}">${rowCard.price}</td>
 					</tr>
 					<tr>
-						<td>${rowLive.name}</td>
-						<td>${rowLive.vol}</td>
-						<td>${rowLive.share}</td>
-						<td>${rowLive.daily}</td>
-						<td>${rowLive.price}</td>
+						<td style="color: #4ea1ff;">${rowLive.name}</td>
+						<td style="${rowLive.volStyle || ''}">${rowLive.vol}</td>
+						<td style="${rowLive.shareStyle || ''}">${rowLive.share}</td>
+						<td style="${rowLive.dailyStyle || ''}">${rowLive.daily}</td>
+						<td style="${rowLive.priceStyle || ''}">${rowLive.price}</td>
 					</tr>
 					<tr>
-						<td>${rowVideo.name}</td>
-						<td>${rowVideo.vol}</td>
-						<td>${rowVideo.share}</td>
-						<td>${rowVideo.daily}</td>
-						<td>${rowVideo.price}</td>
+						<td style="color: #4ea1ff;">${rowVideo.name}</td>
+						<td style="${rowVideo.volStyle || ''}">${rowVideo.vol}</td>
+						<td style="${rowVideo.shareStyle || ''}">${rowVideo.share}</td>
+						<td style="${rowVideo.dailyStyle || ''}">${rowVideo.daily}</td>
+						<td style="${rowVideo.priceStyle || ''}">${rowVideo.price}</td>
 					</tr>
 					<tr>
-						<td>${rowImage.name}</td>
-						<td>${rowImage.vol}</td>
-						<td>${rowImage.share}</td>
-						<td>${rowImage.daily}</td>
-						<td>${rowImage.price}</td>
+						<td style="color: #4ea1ff;">${rowImage.name}</td>
+						<td style="${rowImage.volStyle || ''}">${rowImage.vol}</td>
+						<td style="${rowImage.shareStyle || ''}">${rowImage.share}</td>
+						<td style="${rowImage.dailyStyle || ''}">${rowImage.daily}</td>
+						<td style="${rowImage.priceStyle || ''}">${rowImage.price}</td>
 					</tr>
 					<tr>
-						<td>${rowShop.name}</td>
-						<td>${rowShop.vol}</td>
-						<td>${rowShop.share}</td>
-						<td>${rowShop.daily}</td>
-						<td>${rowShop.price}</td>
+						<td style="color: #4ea1ff;">${rowShop.name}</td>
+						<td style="${rowShop.volStyle || ''}">${rowShop.vol}</td>
+						<td style="${rowShop.shareStyle || ''}">${rowShop.share}</td>
+						<td style="${rowShop.dailyStyle || ''}">${rowShop.daily}</td>
+						<td style="${rowShop.priceStyle || ''}">${rowShop.price}</td>
 					</tr>
 				</tbody>
 			</table>
+            </div>
 			<div style="margin-bottom: 30px; font-size: 13px; color: #ccc; line-height: 1.6;">
 				<div style="margin-bottom:8px;">
 					<strong>直播人均出单数：</strong> 
 					<!-- ${'--' || liveSalesDiff.formula} = -->
-					<span style="color: #fff; font-weight: bold;">${liveSalesDiff.val}</span>
+					<span style="${
+						liveSalesDiff.color
+							? `color:${liveSalesDiff.color};`
+							: 'color: #fff;'
+					} font-weight: bold;">${liveSalesDiff.val}</span>
 				</div>
 				<div>
 					<strong>直播出单规格：</strong>
 					 <!-- ${'--' || specStat.formula} =  -->
-					 <span style="font-weight:bold; color: #fff;">${specStat.val.toFixed(2)}</span>
+					 <span style="${
+							specStat.color ? `color:${specStat.color};` : 'color: #fff;'
+						} font-weight:bold;">${specStat.val.toFixed(2)}</span>
 				</div>
 			</div>
 		`;
@@ -242,7 +274,7 @@
 		decision_enter_from,
 		isError = false
 	) {
-		// Clean up old popup
+		// 清除旧弹窗
 		const oldPopup = document.getElementById('douyin-monitor-popup');
 		if (oldPopup) oldPopup.remove();
 
@@ -258,7 +290,7 @@
 				width: '98%',
 				zIndex: 10000,
 				onClose: () => {
-					// Completely remove from DOM on close to ensure fresh state on next open
+					// 关闭时从 DOM 中完全移除，以确保下次打开时状态新鲜
 					container.remove();
 				},
 			});
@@ -276,7 +308,7 @@
 			link.style.color = '#fff'; // Inherit color
 			link.onmousedown = (e) => e.stopPropagation();
 
-			titleEl.innerHTML = ''; // Clear empty text
+			titleEl.innerHTML = ''; // 清除空文本
 			titleEl.appendChild(link);
 		}
 
@@ -340,7 +372,7 @@
 		};
 		snifferBtn.onmousedown = (e) => e.stopPropagation();
 
-		// Insert buttons in order
+		// 按顺序插入按钮
 		actionsDiv.insertBefore(refreshBtn, closeBtn);
 		actionsDiv.insertBefore(snifferBtn, closeBtn);
 		actionsDiv.insertBefore(toggleBtn, closeBtn);
@@ -400,7 +432,7 @@
 		content.appendChild(tablesContainer);
 		content.appendChild(adviceContainer);
 
-		// Toggle Logic
+		// 切换逻辑
 		let isExpanded = true;
 		toggleBtn.onclick = (e) => {
 			e.stopPropagation();
@@ -423,7 +455,7 @@
 		};
 		toggleBtn.onmousedown = (e) => e.stopPropagation();
 
-		// DM_UI automatically handles appending to body and DM_Utils handles dragging if available
+		// DM_UI 自动处理追加到 body，DM_Utils 处理拖拽（如果可用）
 	}
 
 	async function analyzeAndShow(
@@ -442,7 +474,7 @@
 			// 1. 获取 ewid 并请求 pack_detail (商品信息)
 			let productData = {};
 
-			// 2. 请求 7/30 天数据
+			// 2. 请求 7/30/90 天数据
 			const ranges = skipPopup ? [7] : [7, 30];
 			// 我们可以传递空字符串作为 originalBodyStr，因为它不再用于逻辑
 			const promises = ranges.map(async (days) => {
@@ -514,7 +546,7 @@
 
 			console.log(productName, productPrice);
 
-			// Check validity
+			// 检查有效性
 			const hasData =
 				results && results.length > 0 && results[0] && results[0].data;
 			if (!hasData) {
@@ -529,8 +561,8 @@
 						true
 					);
 				}
-				// Return structure with error, or throw?
-				// handleBatchAnalyze catches errors, so throwing is good.
+				// 返回带有错误的结构，或者抛出？
+				// handleBatchAnalyze 捕获错误，所以抛出是好的。
 				throw new Error('API returned null data');
 			}
 

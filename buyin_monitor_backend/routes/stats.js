@@ -7,8 +7,12 @@ const SECRET_KEY = 'your_secret_key_here'; // 保持与 server.js 一致
 
 // Helper: 解密
 function decrypt(cipherText) {
-	const bytes = crypto.AES.decrypt(cipherText, SECRET_KEY);
-	return bytes.toString(crypto.enc.Utf8);
+	try {
+		const bytes = crypto.AES.decrypt(cipherText, SECRET_KEY);
+		return bytes.toString(crypto.enc.Utf8);
+	} catch (e) {
+		return null;
+	}
 }
 
 // 简单的内存缓存
@@ -99,13 +103,11 @@ const SELECTION_CONFIG = {
 	// 1. 商品卡销量占比 (D2) 配置
 	cardShare: {
 		rules: [
-			{max: 13, msg: '该品的商品卡销量占比过低'},
-			{max: 40, msg: '该品的商品卡占比还不错'},
-			{max: Infinity, msg: '该品的商品卡占比优秀'},
+			{max: 13, msg: '该品的商品卡销量占比过低', type: 'share'},
+			{max: 40, msg: '该品的商品卡占比还不错', type: 'share'},
+			{max: Infinity, msg: '该品的商品卡占比优秀', type: 'share'},
 		],
-		// 定义"绿色"状态的阈值 (占比大于多少算好/绿色? 规则未明确定义颜色的阈值，这里假设 > 40 为优秀/绿色)
 		greenThreshold: 40,
-		// 定义"红色"状态的阈值 (占比小于多少算差/红色?)
 		redThreshold: 13,
 	},
 
@@ -134,14 +136,15 @@ const SELECTION_CONFIG = {
 				max: -5,
 				includeMax: true,
 				msg: '出单大部分严重亏损，佣金高于{y}元，才能盈利，请谨慎选品。',
-				color: '#ff4d4f',
-			}, // 红色
+				color: '#ff4d4f', // Red
+			},
 			// "大于-5且小于等于-2" -> 不包含最小值 (默认), 包含最大值: true
 			{
 				min: -5,
 				max: -2,
 				includeMax: true,
 				msg: '出单大部分为低规格，且亏损，佣金高于{y}元，才能盈利，请谨慎选品',
+				color: '#ff4d4f', // [NEW] Red
 			},
 			// "大于-2且小于0" -> 默认开区间 (不包含端点)
 			{min: -2, max: 0, msg: '出单大部分为低规格，佣金高于{y}元，才能盈利。'},
@@ -481,6 +484,374 @@ router.post('/calculate_stats', verifyToken, (req, res) => {
 		res.json({success: true, data: result});
 	} catch (error) {
 		console.error('API calculate_stats error:', error);
+		res.status(500).json({success: false, message: 'Internal Server Error'});
+	}
+});
+
+// ==========================================
+// 自定义规则配置 API
+// ==========================================
+
+// 保存选品配置
+router.post('/save_selection_config', verifyToken, async (req, res) => {
+	try {
+		const {selection_config} = req.body;
+		if (!selection_config) {
+			return res.status(400).json({success: false, message: 'Missing config'});
+		}
+
+		// Ensure it's valid JSON
+		if (typeof selection_config !== 'string') {
+			return res
+				.status(400)
+				.json({success: false, message: 'Config must be a JSON string'});
+		}
+		try {
+			JSON.parse(selection_config);
+		} catch (e) {
+			return res.status(400).json({success: false, message: 'Invalid JSON'});
+		}
+
+		// Update user
+		req.user.selectionConfig = selection_config;
+		await req.user.save();
+
+		res.json({success: true, message: 'Saved successfully'});
+	} catch (error) {
+		console.error('API save_selection_config error:', error);
+		res.status(500).json({success: false, message: 'Internal Server Error'});
+	}
+});
+
+// 获取选品配置
+router.get('/get_selection_config', verifyToken, async (req, res) => {
+	try {
+		let configStr = req.user.selectionConfig;
+		// If empty, return null or empty object? Returning null lets frontend decide default.
+		res.json({
+			success: true,
+			selection_config: configStr || null,
+		});
+	} catch (error) {
+		console.error('API get_selection_config error:', error);
+		res.status(500).json({success: false, message: 'Internal Server Error'});
+	}
+});
+
+/**
+ * 高级动态推广状态计算
+ * 如果可用，使用用户的自定义配置，否则回退到默认值。
+ */
+router.post('/get_promotion_status', verifyToken, async (req, res) => {
+	try {
+		const {data, days, productPrice, promotionId} = req.body;
+
+		// 1. 计算基础统计数据 (标准逻辑)
+		// 我们复用基础提取逻辑，但可能需要更细粒度的数据用于自定义规则。
+		// 目前，我们先调用 calculateStats 获取基础指标 (D2, E2, SpecDiff 等)
+		// 然后在此基础上应用自定义的综合逻辑。
+		// 实际上，calculateStats 已经做了很多建议生成工作。
+		// 我们应该从 "建议生成" 中提取 "指标计算"。
+		// 但为了最小化重构风险，我们可以先调用 calculateStats，如果存在自定义配置，则覆盖 'overallStatus' / 'advice'。
+
+		let result = calculateStats(data, days, productPrice, promotionId);
+		const userConfigStr = req.user.selectionConfig;
+
+		if (userConfigStr) {
+			try {
+				const userConfig = JSON.parse(userConfigStr);
+				/*
+                 用户配置结构预期:
+                 {
+                    rules: [
+                        { field: 'cardShare', operator: '<', value: 13, msg: '...', color: 'red', status: 'bad' },
+                        ...
+                    ],
+                    overall: {
+                        good: { requiredGood: 2, requiredPassed: 0, ... }, // 逻辑示例: "如果 2 个指标为 GOOD"
+                        // 或者用户定义的组合？
+                        // 简单方法符合需求: "选择特定状态 => Good"
+                        // 实现:
+                        // 1. 针对指标评估每个单独的规则。
+                        // 2. 收集状态 (如 D2=bad, E2=good, Spec=passed)。
+                        // 3. 针对收集的状态评估综合配置。
+                    }
+                 }
+                */
+
+				// --- A. 基于自定义规则重新评估各单项指标 ---
+
+				// [修复] 从 calculateStats 中清除默认颜色，以确保只有自定义规则应用颜色
+				if (result.channels) {
+					result.channels.forEach((ch) => {
+						delete ch.dailyColor;
+						delete ch.dailyStyle; // Assuming we might have added this earlier or calculateStats did
+					});
+				}
+
+				// 我们需要 result 中的原始指标
+				// result.channels 是数组: [Card, Live, Video, ImageText, Shop]
+				// 我们需要将它们映射到键: card_vol, card_share 等。
+
+				const metrics = {};
+				const channelMap = {
+					商品卡: 'card',
+					直播: 'live',
+					短视频: 'video',
+					图文: 'imageText',
+					橱窗: 'bindShop',
+				};
+				// 将前缀映射到渠道索引以进行颜色注入
+				const prefixToChannelIndex = {
+					card: 0,
+					live: 1,
+					video: 2,
+					imageText: 3,
+					bindShop: 4,
+				};
+
+				if (result.channels) {
+					result.channels.forEach((ch) => {
+						const keyPrefix = channelMap[ch.name];
+						if (keyPrefix) {
+							metrics[`${keyPrefix}_vol`] = parseFloat(ch.vol) || 0;
+							metrics[`${keyPrefix}_share`] = parseFloat(ch.share) || 0; // "12.34%" -> 12.34
+							metrics[`${keyPrefix}_daily`] = parseFloat(ch.daily) || 0;
+							metrics[`${keyPrefix}_price`] = parseFloat(ch.price) || 0;
+						}
+					});
+				}
+
+				// 遗留与特殊支持
+				metrics['liveSpec'] = result.extraStats.specStat.val; // Number
+				metrics['liveSalesDiff'] =
+					parseFloat(result.extraStats.liveSalesDiff.val) || 0;
+				metrics['totalSales'] = result.totalSales;
+				// 遗留键用于向后兼容（如果保存了任何旧规则）
+				metrics['cardShare'] = metrics['card_share'];
+				metrics['cardDaily'] = metrics['card_daily'];
+
+				// 可配置规则应用
+				// 我们将清除默认建议和状态
+				let customAdvice = [];
+				let metricStatuses = []; // ['good', 'bad', 'passed', ...]
+
+				// 评估单条规则的辅助逻辑
+				// 规则: { target: 'cardShare', op: '<', val: 13, msg: 'Low', color: 'red', status: 'bad' }
+				if (Array.isArray(userConfig.rules)) {
+					//按目标对规则进行分组以找到第一个匹配项？
+					// 通常规则引擎每个目标匹配第一个有效规则。
+					const rulesByTarget = {};
+					userConfig.rules.forEach((r) => {
+						if (!rulesByTarget[r.target]) rulesByTarget[r.target] = [];
+						rulesByTarget[r.target].push(r);
+					});
+
+					// 逐个目标评估
+					// 收集规则中的所有唯一目标
+					const targets = Object.keys(rulesByTarget);
+
+					for (const target of targets) {
+						let rules = rulesByTarget[target];
+						if (!rules) continue;
+
+						// [修复] 对规则进行排序以确保优先级正确 (最严格的优先)
+						// 对于 '>'/'>=': 降序 (大值优先)。例如：先检查 > 40，再检查 > 10
+						// 对于 '<'/'<=': 升序 (小值优先)。例如：先检查 < 10，再检查 < 40
+						rules.sort((a, b) => {
+							const valA = parseFloat(a.val);
+							const valB = parseFloat(b.val);
+							if (isNaN(valA) || isNaN(valB)) return 0;
+
+							// Detect direction based on operator of A
+							// Assuming mixed operators for same target is rare/handled by distinct logic,
+							// but here we prioritize based on A's operator.
+							if (a.op === '>' || a.op === '>=') {
+								return valB - valA; // Descending
+							} else if (a.op === '<' || a.op === '<=') {
+								return valA - valB; // Ascending
+							}
+							return 0;
+						});
+
+						const val = metrics[target];
+						// 如果找不到指标 (undefined) 则跳过
+						if (val === undefined) continue;
+
+						let matched = false;
+
+						for (const rule of rules) {
+							let isHit = false;
+							const threshold = parseFloat(rule.val);
+							if (isNaN(threshold)) continue;
+
+							// 运算符: <, <=, >, >=
+							switch (rule.op) {
+								case '<':
+									isHit = val < threshold;
+									break;
+								case '<=':
+									isHit = val <= threshold;
+									break;
+								case '>':
+									isHit = val > threshold;
+									break;
+								case '>=':
+									isHit = val >= threshold;
+									break;
+								case 'range': // val >= min && val < max (custom)
+									if (rule.min !== undefined && rule.max !== undefined) {
+										isHit = val >= rule.min && val < rule.max;
+									}
+									break;
+							}
+
+							if (isHit) {
+								matched = true;
+								// 添加建议
+								if (rule.msg) {
+									customAdvice.push({
+										msg: rule.msg,
+										color: rule.color,
+										type: target,
+									});
+								}
+								// 收集状态
+								if (rule.status) {
+									metricStatuses.push(rule.status); // good, passed, bad
+								}
+
+								// [新] 将颜色注入表格数据
+								if (rule.color) {
+									const match = target.match(
+										/^([a-zA-Z]+)_(vol|share|daily|price)$/
+									);
+									if (match) {
+										const prefix = match[1];
+										const type = match[2];
+										const chIndex = prefixToChannelIndex[prefix];
+										if (chIndex !== undefined && result.channels[chIndex]) {
+											result.channels[chIndex][`${type}Color`] = rule.color;
+											// Ensure font weight is bold if colored
+											result.channels[chIndex][
+												`${type}Style`
+											] = `color: ${rule.color}; font-weight: bold;`;
+										}
+									} else {
+										// 处理标量指标
+										if (target === 'totalSales') {
+											result.totalSalesColor = rule.color;
+										} else if (target === 'liveSpec') {
+											if (!result.extraStats.specStat)
+												result.extraStats.specStat = {};
+											result.extraStats.specStat.color = rule.color;
+										} else if (target === 'liveSalesDiff') {
+											if (!result.extraStats.liveSalesDiff)
+												result.extraStats.liveSalesDiff = {};
+											result.extraStats.liveSalesDiff.color = rule.color;
+										}
+									}
+								}
+
+								break; // 匹配到第一个后停止
+							}
+						}
+					}
+				}
+
+				// --- B. 重新评估综合状态 ---
+				// 需求: "选择几个状态为 Good..."
+				// 逻辑: 检查用户定义的计数/状态组合。
+				// 例如 overall_rules: [
+				//    { result: 'good', conditions: { good: 2 } }, // 至少 2 个 good
+				//    { result: 'bad', conditions: { bad: 1 } }    // 至少 1 个 bad
+				// ]
+				// 我们需要优先级。通常 Bad > Good? 还是第一个匹配?
+				// 假设列表中的顺序很重要。
+
+				let newOverallStatus = 'normal'; // 默认
+				let newOverallHtml = '';
+
+				if (Array.isArray(userConfig.overall_rules)) {
+					// [修复] 按优先级排序规则: good > passed > bad
+					// 用户要求: "先检查good、在检查passed，最后检查bad"
+					const priorityMap = {good: 1, passed: 2, bad: 3};
+					userConfig.overall_rules.sort((a, b) => {
+						const pa = priorityMap[a.result] || 99;
+						const pb = priorityMap[b.result] || 99;
+						return pa - pb;
+					});
+
+					const counts = {good: 0, passed: 0, bad: 0};
+					metricStatuses.forEach((s) => {
+						if (counts[s] !== undefined) counts[s]++;
+					});
+
+					for (const oRule of userConfig.overall_rules) {
+						// oRule: { result: 'good', criteria: { good: 1, passed: 0, bad: 0 }, logic: 'OR'/'AND' }
+						// Simplified: "If counts.good >= X AND counts.bad >= Y ..."
+						let meets = true;
+						if (oRule.criteria) {
+							if (oRule.criteria.good && counts['good'] < oRule.criteria.good)
+								meets = false;
+							// [逻辑调整]
+							// 如果规则明确要求 Good 项目 (criteria.good > 0)，则对 Passed 要求进行严格判定 (必须是不同的项目)。
+							// 如果规则不要求 Good 项目，则对 Passed 要求进行兼容判定 (Good 项目也可以算作 Passed)。
+							// 示例: "Good>=1, Passed>=1" -> 严格模式 (需要 1 个 Good 和 1 个单独的 Passed)。
+							// 示例: "Passed>=1" -> 兼容模式 (1 个 Good 也可以算作 1 个 Passed)。
+							const useStrictPassed =
+								oRule.criteria.good && oRule.criteria.good > 0;
+							const passedCheckCount = useStrictPassed
+								? counts['passed']
+								: counts['passed'] + counts['good'];
+
+							if (
+								oRule.criteria.passed &&
+								passedCheckCount < oRule.criteria.passed
+							)
+								meets = false;
+							if (oRule.criteria.bad && counts['bad'] < oRule.criteria.bad)
+								meets = false;
+						}
+
+						if (meets) {
+							newOverallStatus = oRule.result; // good, passed, bad
+							break;
+						}
+					}
+				} else {
+					// 备用：如果没有定义综合规则，则回退到检测到的状态？
+					// 或者如果自定义规则不完整，保持 'normal'。
+					// 目前，如果没有综合规则，保持 'normal'
+				}
+
+				// 将状态映射包含 HTML
+				const mapStatusToHtml = (s) => {
+					switch (s) {
+						case 'good':
+							return '<span style="color:#25c260; font-weight:bold;">👍 自定义: 推荐</span>';
+						case 'passed':
+							return '<span style="color:#25c260; font-weight:bold;">✅ 自定义: 通过</span>';
+						case 'bad':
+							return '<span style="color:#ff4d4f; font-weight:bold;">⚠️ 自定义: 不推荐</span>';
+						default:
+							return '<span>自定义: 一般</span>';
+					}
+				};
+
+				// 覆盖结果
+				result.advice = customAdvice.length > 0 ? customAdvice : result.advice;
+				result.overallStatus = newOverallStatus;
+				result.overallHtml = mapStatusToHtml(newOverallStatus);
+			} catch (e) {
+				console.error('应用自定义规则时出错:', e);
+				// 如果不修改 'result'，将自动回退到默认结果
+			}
+		}
+
+		res.json({success: true, data: result});
+	} catch (error) {
+		console.error('API get_promotion_status error:', error);
 		res.status(500).json({success: false, message: 'Internal Server Error'});
 	}
 });

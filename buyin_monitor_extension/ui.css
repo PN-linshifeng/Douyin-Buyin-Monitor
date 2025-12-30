@@ -96,8 +96,6 @@
 	position: fixed;
 	top: 50px;
 	left: 50%;
-	max-width: 1200px;
-	max-height: 95vh;
 	transform: translate(-50%, 0%);
 	z-index: 10001;
 	display: block;
@@ -107,7 +105,7 @@
 	border-radius: 8px;
 	box-shadow: 0 4px 20px rgba(0, 0, 0, 0.4);
 	width: 90%;
-	max-width: 1000px;
+	max-width: 1200px;
 	max-height: 90vh;
 	overflow-y: auto;
 	font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
@@ -256,4 +254,121 @@
 	white-space: nowrap;
 	overflow: hidden;
 	text-overflow: ellipsis;
+}
+
+/* --------------------------------------------------------------------------
+   Custom Rules Form Styles
+   -------------------------------------------------------------------------- */
+.dm-section {
+	background: rgba(255, 255, 255, 0.02);
+	border: 1px solid var(--dm-dark-border);
+	border-radius: 8px;
+	padding: 20px;
+	margin-bottom: 24px;
+}
+
+.dm-section-title {
+	margin: 0 0 16px 0;
+	color: var(--dm-primary-light);
+	font-size: 16px;
+	font-weight: 600;
+	border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+	padding-bottom: 10px;
+}
+
+.dm-form-row {
+	display: flex;
+	gap: 12px;
+	margin-bottom: 16px;
+	flex-wrap: wrap;
+	align-items: flex-end;
+}
+
+.dm-form-group {
+	display: flex;
+	flex-direction: column;
+}
+
+.dm-form-group label {
+	font-size: 12px;
+	color: #aaa;
+	margin-bottom: 6px;
+	font-weight: 500;
+}
+
+.dm-input {
+	background: rgba(0, 0, 0, 0.2);
+	border: 1px solid var(--dm-dark-border);
+	color: var(--dm-text-light);
+	padding: 8px 10px;
+	border-radius: 4px;
+	font-size: 14px;
+	outline: none;
+	transition: all 0.2s ease;
+	width: 100%;
+	box-sizing: border-box; /* Ensure padding doesn't affect width */
+	height: 36px; /* consistent height */
+}
+
+/* Fix for Selects to ensure they align well with inputs */
+select.dm-input {
+	appearance: none;
+	background-image: url("data:image/svg+xml;charset=UTF-8,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23aaaaaa' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3e%3cpolyline points='6 9 12 15 18 9'%3e%3c/polyline%3e%3c/svg%3e");
+	background-repeat: no-repeat;
+	background-position: right 10px center;
+	background-size: 16px;
+	padding-right: 32px;
+}
+
+.dm-input:focus {
+	border-color: var(--dm-primary);
+	background: rgba(0, 0, 0, 0.3);
+	box-shadow: 0 0 0 2px rgba(25, 102, 255, 0.2);
+}
+
+.dm-input option {
+	background: var(--dm-dark-bg);
+	color: var(--dm-text-light);
+}
+
+/* Rule List */
+.dm-rule-list {
+	max-height: 240px;
+	overflow-y: auto;
+	border: 1px solid rgba(255, 255, 255, 0.05); /* Subtle border */
+	border-radius: 4px;
+	background: rgba(0, 0, 0, 0.1);
+	padding: 4px;
+}
+
+/* Scrollbar for rule list */
+.dm-rule-list::-webkit-scrollbar {
+	width: 6px;
+}
+.dm-rule-list::-webkit-scrollbar-thumb {
+	background: #555;
+	border-radius: 3px;
+}
+.dm-rule-list::-webkit-scrollbar-track {
+	background: transparent;
+}
+
+.dm-rule-item {
+	display: flex;
+	gap: 12px;
+	margin-bottom: 4px; /* Tiny gap between items */
+	align-items: center;
+	background: rgba(255, 255, 255, 0.03);
+	padding: 8px 12px;
+	border-radius: 4px;
+	transition: background 0.2s;
+	font-size: 13px;
+}
+
+.dm-rule-item:hover {
+	background: rgba(255, 255, 255, 0.08);
+}
+
+.dm-rule-item:last-child {
+	margin-bottom: 0;
 }
