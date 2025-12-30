@@ -124,29 +124,6 @@
 
 		popupInstance = container;
 
-		// 添加收起/展开按钮
-		const toggleBtn = document.createElement('button');
-		toggleBtn.innerText = '🔼';
-		toggleBtn.style.cssText = `
-			background: transparent;
-			border: none;
-			color: #ccc;
-			font-size: 14px;
-			cursor: pointer;
-			padding: 4px;
-		`;
-
-		let isExpanded = true;
-		toggleBtn.onclick = () => {
-			isExpanded = !isExpanded;
-			toggleBtn.innerText = isExpanded ? '🔼' : '🔽';
-			content.style.display = isExpanded ? 'block' : 'none';
-		};
-
-		actionsDiv.insertBefore(toggleBtn, closeBtn);
-
-		content.style.transition = 'height 0.3s ease';
-
 		// Table
 		const table = document.createElement('table');
 		table.className = 'dm-dark-table';

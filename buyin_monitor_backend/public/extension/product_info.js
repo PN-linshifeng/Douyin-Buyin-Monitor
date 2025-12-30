@@ -313,12 +313,6 @@
 		}
 
 		// 2. 添加操作按钮
-		// 收起/展开内容按钮
-		const toggleBtn = document.createElement('button');
-		toggleBtn.className = 'dm-button dm-btn-small';
-		toggleBtn.innerText = '🔼 收起';
-		toggleBtn.style.background = 'rgba(255, 255, 255, 0.1)';
-		toggleBtn.style.border = '1px solid rgba(255, 255, 255, 0.2)';
 
 		// 刷新按钮
 		const refreshBtn = document.createElement('button');
@@ -375,7 +369,6 @@
 		// 按顺序插入按钮
 		actionsDiv.insertBefore(refreshBtn, closeBtn);
 		actionsDiv.insertBefore(snifferBtn, closeBtn);
-		actionsDiv.insertBefore(toggleBtn, closeBtn);
 
 		// 3. 构建 Popover 内容 (Tables & Advice)
 		const tablesContainer = document.createElement('div');
@@ -431,29 +424,6 @@
 
 		content.appendChild(tablesContainer);
 		content.appendChild(adviceContainer);
-
-		// 切换逻辑
-		let isExpanded = true;
-		toggleBtn.onclick = (e) => {
-			e.stopPropagation();
-			isExpanded = !isExpanded;
-			toggleBtn.innerText = isExpanded ? '🔼 收起' : '🔽 展开';
-
-			const displayVal = isExpanded ? 'flex' : 'none';
-			const displayBlock = isExpanded ? 'block' : 'none';
-			if (tablesContainer) tablesContainer.style.display = displayVal;
-			if (adviceContainer) adviceContainer.style.display = displayBlock;
-
-			// 定位逻辑: 收起到底部，展开回顶部
-			if (!isExpanded) {
-				container.style.top = 'calc(100vh - 100px)';
-				// container.style.bottom = '20px';
-			} else {
-				// container.style.bottom = '';
-				container.style.top = '100px';
-			}
-		};
-		toggleBtn.onmousedown = (e) => e.stopPropagation();
 
 		// DM_UI 自动处理追加到 body，DM_Utils 处理拖拽（如果可用）
 	}

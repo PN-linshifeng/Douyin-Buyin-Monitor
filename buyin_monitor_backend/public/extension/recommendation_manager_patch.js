@@ -84,38 +84,6 @@
 		const {container, content, actionsDiv, closeBtn} = result;
 		popupInstance = container;
 
-		// 添加收起/展开按钮
-		const toggleBtn = document.createElement('button');
-		toggleBtn.innerText = '🔼';
-		toggleBtn.style.cssText = `
-			background: transparent;
-			border: none;
-			color: #ccc;
-			font-size: 14px;
-			cursor: pointer;
-			padding: 4px;
-		`;
-
-		let isExpanded = true;
-		toggleBtn.onclick = () => {
-			isExpanded = !isExpanded;
-			toggleBtn.innerText = isExpanded ? '🔼' : '🔽';
-			content.style.display = isExpanded ? 'block' : 'none';
-
-			// 定位逻辑: 收起到底部，展开回顶部
-			if (!isExpanded) {
-				container.style.top = 'calc(100vh - 100px)';
-				// container.style.bottom = '20px';
-			} else {
-				// container.style.bottom = '';
-				container.style.top = '100px';
-			}
-		};
-
-		actionsDiv.insertBefore(toggleBtn, closeBtn);
-
-		content.style.transition = 'height 0.3s ease';
-
 		// Table
 		const table = document.createElement('table');
 		table.className = 'dm-dark-table';

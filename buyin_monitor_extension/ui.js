@@ -60,10 +60,47 @@
 			const closeBtn = document.createElement('button');
 			closeBtn.innerText = '✕';
 			closeBtn.className = 'dm-popup-close';
+			// Toggle/Collapse Button
+			const toggleBtn = document.createElement('button');
+			let isExpanded = true;
+			// Store initial position or default
+			const initialTop = container.style.top || '100px';
+
+			toggleBtn.innerText = '🔼 收起';
+			toggleBtn.className = 'dm-button dm-btn-primary dm-btn-small';
+			toggleBtn.style.marginRight = '4px';
+			toggleBtn.onclick = (e) => {
+				e.stopPropagation();
+				isExpanded = !isExpanded;
+				toggleBtn.innerText = isExpanded ? '🔼 收起' : '🔽 展开';
+
+				content.style.display = isExpanded ? 'block' : 'none';
+
+				// Standard collapse behavior: move to bottom
+				if (!isExpanded) {
+					// Save current top (computed or style)
+					const currentTop =
+						container.style.top || window.getComputedStyle(container).top;
+					container.dataset.expandedTop = currentTop;
+
+					container.style.top = 'calc(100vh - 60px)'; // Collapsed position
+					container.style.transform = 'translate(-50%, 0)'; // Ensure x-centering is kept if used
+				} else {
+					// Restore top
+					container.style.top = container.dataset.expandedTop || initialTop;
+				}
+
+				if (config.onToggle) {
+					config.onToggle(isExpanded);
+				}
+			};
+
 			closeBtn.onclick = () => {
 				container.style.display = 'none';
 				if (onClose) onClose();
 			};
+
+			actionsDiv.appendChild(toggleBtn);
 
 			actionsDiv.appendChild(closeBtn);
 			header.appendChild(titleEl);

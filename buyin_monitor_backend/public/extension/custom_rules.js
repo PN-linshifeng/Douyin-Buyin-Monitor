@@ -446,22 +446,28 @@
 			section2.appendChild(overallForm);
 			section2.appendChild(overallListDiv);
 
-			// 追加各部分
+			// 3. 页脚区域（保存按钮）
+			const footer = document.createElement('div');
+			footer.style.marginTop = '20px';
+			footer.style.textAlign = 'right';
+			footer.style.borderTop = '1px solid rgba(255,255,255,0.1)';
+			footer.style.paddingTop = '15px';
+
+			// 保存按钮逻辑
+			const saveBtn = document.createElement('button');
+			saveBtn.className = 'dm-button dm-btn-success dm-btn-large';
+			saveBtn.innerText = '💾 保存配置';
+			saveBtn.onclick = saveConfig;
+
+			footer.appendChild(saveBtn);
 			content.appendChild(section1);
 			content.appendChild(section2);
+			content.appendChild(footer);
 
 			// 渲染初始列表
 			renderRulesList(rulesListDiv);
 			renderOverallList(overallListDiv);
 		}
-
-		// 保存按钮逻辑
-		const saveBtn = document.createElement('button');
-		saveBtn.className = 'dm-button dm-btn-success dm-btn-large';
-		saveBtn.innerText = '💾 保存配置';
-		saveBtn.onclick = saveConfig;
-
-		actionsDiv.insertBefore(saveBtn, closeBtn);
 	}
 
 	function createConfigButton(container) {
