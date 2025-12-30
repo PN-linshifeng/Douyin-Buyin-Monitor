@@ -119,12 +119,28 @@
 
 			const info = document.createElement('div');
 			info.style.flex = '1';
+
+			let ruleDesc = '';
+			if (rule.conditions && rule.conditions.length > 0) {
+				const condParts = rule.conditions.map(
+					(c) =>
+						`<strong style="color: #4ea1ff;">${getFieldName(
+							c.target
+						)}</strong> ${c.op} <span style="color: #ffca28;">${c.val}</span>`
+				);
+				ruleDesc = condParts.join(' <span style="color:#888;">AND</span> ');
+			} else {
+				ruleDesc = `
+                    <strong style="color: #4ea1ff;">${getFieldName(
+											rule.target
+										)}</strong> 
+                    ${rule.op} 
+                    <span style="color: #ffca28;">${rule.val}</span> 
+                `;
+			}
+
 			info.innerHTML = `
-                <strong style="color: #4ea1ff;">${getFieldName(
-									rule.target
-								)}</strong> 
-                ${rule.op} 
-                <span style="color: #ffca28;">${rule.val}</span> 
+                ${ruleDesc}
                 => <span style="color: ${rule.color || '#fff'}">${
 				rule.msg
 			}</span>
@@ -194,6 +210,16 @@
 
 			const c = rule.criteria || {};
 			const desc = [];
+
+			// Conditions (e.g., LiveSalesDiff > 10)
+			if (rule.conditions && rule.conditions.length > 0) {
+				const condParts = rule.conditions.map(
+					(cond) => `${getFieldName(cond.target)} ${cond.op} ${cond.val}`
+				);
+				desc.push(condParts.join(' & '));
+			}
+
+			// Criteria (e.g., Good >= 3)
 			if (c.good) desc.push(`Good >= ${c.good}`);
 			if (c.passed) desc.push(`Passed >= ${c.passed}`);
 			if (c.bad) desc.push(`Bad >= ${c.bad}`);
