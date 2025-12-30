@@ -10,6 +10,8 @@
 
 	const borderRadius = '50px';
 
+	let globalMaxZIndex = 11000;
+
 	window.DM_UI = {
 		borderRadius: borderRadius,
 		colors: colors,
@@ -33,17 +35,32 @@
 
 		createDarkPopup: function (config) {
 			// config: { id, title, width, onClose, zIndex }
-			const {id, title, width = '90%', onClose, zIndex = 10001} = config;
+			const {id, title, width = '90%', onClose, zIndex} = config;
+			// Use global Z-index if not specified, or max of both
+			let currentZ = zIndex
+				? Math.max(zIndex, globalMaxZIndex + 1)
+				: globalMaxZIndex + 1;
+			globalMaxZIndex = currentZ;
 
 			let container = document.getElementById(id);
-			if (container) return {container, exists: true};
+			if (container) {
+				// Determine if existing needs Z update
+				container.style.display = 'block'; // Ensure visible
+				container.style.zIndex = ++globalMaxZIndex;
+				return {container, exists: true};
+			}
 
 			container = document.createElement('div');
 			container.id = id;
 			container.className = 'dm-dark-popup';
 			// Dynamic overrides
-			container.style.zIndex = zIndex;
+			container.style.zIndex = currentZ;
 			container.style.width = width;
+
+			// Bring to front on click
+			container.onmousedown = () => {
+				container.style.zIndex = ++globalMaxZIndex;
+			};
 
 			// Header
 			const header = document.createElement('div');
