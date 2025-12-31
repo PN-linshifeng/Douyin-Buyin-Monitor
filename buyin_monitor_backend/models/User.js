@@ -1,5 +1,6 @@
 const {DataTypes} = require('sequelize');
 const sequelize = require('../database/connection');
+const DEFAULT_SELECTION_CONFIG = require('../utils/default_config');
 
 const User = sequelize.define(
 	'User',
@@ -25,6 +26,10 @@ const User = sequelize.define(
 		},
 		selectionConfig: {
 			type: DataTypes.TEXT, // Store JSON string of user's custom selection rules
+		},
+		defaultConfig: {
+			type: DataTypes.TEXT,
+			defaultValue: JSON.stringify(DEFAULT_SELECTION_CONFIG),
 		},
 	},
 	{
