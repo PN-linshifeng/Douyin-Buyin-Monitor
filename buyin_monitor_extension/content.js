@@ -382,6 +382,24 @@
 		const footer = document.createElement('div');
 		footer.id = 'dm-widget-footer';
 
+		// Logout Button
+		const logoutBtn = document.createElement('div');
+		logoutBtn.innerText = '退出登录';
+		logoutBtn.className = 'md-link';
+		// logoutBtn.style.cssText =
+		// 	'font-size: 12px; color: #999; cursor: pointer; text-decoration: underline; margin-top: 10px; text-align: center; width: 100%;';
+		logoutBtn.onclick = () => {
+			if (confirm('确定要退出登录吗？')) {
+				localStorage.removeItem('dm_token');
+				// Remove widget
+				const widget = document.getElementById('dm-main-widget');
+				if (widget) widget.remove();
+				// Show login modal
+				createLoginModal();
+			}
+		};
+		footer.appendChild(logoutBtn);
+
 		panel.appendChild(body);
 		panel.appendChild(footer);
 
@@ -443,6 +461,22 @@
             text-align: center;
         `;
 
+		// Close Button
+		const closeBtn = document.createElement('div');
+		closeBtn.innerHTML = '&times;';
+		closeBtn.style.cssText = `
+            position: absolute;
+            top: 10px;
+            right: 15px;
+            font-size: 24px;
+            color: #999;
+            cursor: pointer;
+            line-height: 1;
+            font-weight: bold;
+        `;
+		closeBtn.onclick = () => modal.remove();
+		modal.appendChild(closeBtn);
+
 		// Logo Header
 		const logoImg = document.createElement('img');
 		logoImg.src = chrome.runtime.getURL('images/logo.jpeg');
@@ -492,17 +526,6 @@
 			btn.style.cssText = window.DM_UI.getButtonStyle(
 				window.DM_UI.colors.primary
 			);
-		} else {
-			btn.style.cssText = `
-				width: 100%;
-				padding: 12px;
-				background: #1966ff;
-				color: #fff;
-				border: none;
-				border-radius: 8px;
-				cursor: pointer;
-				font-weight: bold;
-			`;
 		}
 		modal.appendChild(btn);
 
