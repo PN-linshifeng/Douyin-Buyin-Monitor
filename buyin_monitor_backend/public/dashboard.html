@@ -106,19 +106,25 @@
       width: 100%;
       height: 100%;
       background: rgba(0, 0, 0, 0.5);
-      align-items: center;
-      justify-content: center;
+      z-index: 1000;
+      overflow-y: auto;
+      padding: 20px 0;
     }
 
     .modal.open {
       display: flex;
+      justify-content: center;
+      align-items: flex-start;
     }
 
     .modal-content {
       background: white;
       padding: 20px;
       border-radius: 8px;
-      width: 400px;
+      width: 600px;
+      max-width: 90%;
+      margin: 20px auto;
+      position: relative;
     }
 
     .modal-header {
@@ -354,6 +360,24 @@
         <label>指纹 (清空可解绑设备)</label>
         <input type="text" id="modalFingerprint" placeholder="指纹哈希值">
       </div>
+      <div class="form-item" id="configGroup" style="display:none;">
+        <label>选品配置 (JSON)</label>
+        <div style="margin-bottom: 5px;">
+          <button onclick="loadDefaultSelectionConfig()" class="btn btn-default quick-btn">加载默认配置</button>
+          <button onclick="formatSelectionConfig()" class="btn btn-default quick-btn">美化 JSON</button>
+        </div>
+        <textarea id="modalSelectionConfig" rows="10"
+                  style="width:100%; box-sizing:border-box; border:1px solid #ddd; border-radius:4px; padding:8px; font-family:monospace;"></textarea>
+      </div>
+      <div class="form-item" id="defaultConfigGroup" style="display:none;">
+        <label>默认配置 (defaultConfig JSON)</label>
+        <div style="margin-bottom: 5px;">
+          <button onclick="loadToDefaultConfig()" class="btn btn-default quick-btn">加载系统默认</button>
+          <button onclick="formatDefaultConfig()" class="btn btn-default quick-btn">美化 JSON</button>
+        </div>
+        <textarea id="modalDefaultConfig" rows="10"
+                  style="width:100%; box-sizing:border-box; border:1px solid #ddd; border-radius:4px; padding:8px; font-family:monospace;"></textarea>
+      </div>
       <div class="modal-footer">
         <button onclick="closeModal()" class="btn btn-default">取消</button>
         <button onclick="saveUser()" class="btn btn-primary">保存</button>
@@ -545,7 +569,7 @@
                     <td>
                         <button onclick="openRenewModal('${u.id}', '${u.phone}', '${u.expirationTime || ''}')" class="btn btn-primary" style="margin-right:5px;">续费</button>
                         <button onclick="jumpToLogs('${u.phone}')" class="btn btn-default" style="margin-right:5px;">续费记录</button>
-                        <button onclick="openEditModal('${u.id}', '${u.expirationTime || ''}', '${u.fingerprint || ''}')" class="btn btn-default" style="margin-right:5px;">修改</button>
+                        <button onclick="openEditModal('${u.id}')" class="btn btn-default" style="margin-right:5px;">修改</button>
                         <button onclick="deleteUser('${u.id}')" class="btn btn-danger">删除</button>
                     </td>
                 `;
@@ -572,12 +596,17 @@
       document.getElementById('expireGroup').style.display = 'block';
       document.getElementById('modalFingerprint').value = '';
       document.getElementById('fingerprintGroup').style.display = 'none'; // 新增时不填指纹，登录自动绑定
+      document.getElementById('configGroup').style.display = 'none';
+      document.getElementById('defaultConfigGroup').style.display = 'none';
       document.getElementById('userModal').classList.add('open');
     }
 
-    function openEditModal(id, currentExpire, currentFingerprint) {
+    function openEditModal(id) {
       currentMode = 'edit';
       editingId = id;
+      const user = allUsersCache.find(u => u.id == id);
+      if (!user) return alert('User not found in cache');
+
       document.getElementById('modalTitle').innerText = '修改用户';
       document.getElementById('modalPhone').value = '(用户ID: ' + id + ')';
       document.getElementById('modalPhone').disabled = true;
@@ -586,8 +615,8 @@
 
       // Format to YYYY-MM-DD for input[type=date]
       let dateVal = '';
-      if (currentExpire) {
-        const d = new Date(currentExpire);
+      if (user.expirationTime) {
+        const d = new Date(user.expirationTime);
         const year = d.getFullYear();
         const month = String(d.getMonth() + 1).padStart(2, '0');
         const day = String(d.getDate()).padStart(2, '0');
@@ -596,13 +625,81 @@
       document.getElementById('modalExpire').value = dateVal;
 
       document.getElementById('fingerprintGroup').style.display = 'block';
-      document.getElementById('modalFingerprint').value = currentFingerprint || '';
+      document.getElementById('modalFingerprint').value = user.fingerprint || '';
+
+      document.getElementById('configGroup').style.display = 'block';
+      if (user.selectionConfig) {
+        document.getElementById('modalSelectionConfig').value = JSON.stringify(user.selectionConfig, null, 2);
+      } else {
+        document.getElementById('modalSelectionConfig').value = '';
+      }
+
+      document.getElementById('defaultConfigGroup').style.display = 'block';
+      if (user.defaultConfig) {
+        document.getElementById('modalDefaultConfig').value = JSON.stringify(user.defaultConfig, null, 2);
+      } else {
+        document.getElementById('modalDefaultConfig').value = '';
+      }
 
       document.getElementById('userModal').classList.add('open');
     }
 
     function closeModal() {
       document.getElementById('userModal').classList.remove('open');
+    }
+
+    async function loadDefaultSelectionConfig() {
+      try {
+        const res = await fetch('/api/admin/default-selection-config');
+        const result = await res.json();
+        if (result.success) {
+          const config = result.data || {};
+          document.getElementById('modalSelectionConfig').value = JSON.stringify(config, null, 2);
+        } else {
+          alert('Failed to load default config');
+        }
+      } catch (e) {
+        console.error(e);
+        alert('Error loading default config');
+      }
+    }
+
+    async function loadToDefaultConfig() {
+      try {
+        const res = await fetch('/api/admin/default-selection-config');
+        const result = await res.json();
+        if (result.success) {
+          const config = result.data || {};
+          document.getElementById('modalDefaultConfig').value = JSON.stringify(config, null, 2);
+        } else {
+          alert('Failed to load default config');
+        }
+      } catch (e) {
+        console.error(e);
+        alert('Error loading default config');
+      }
+    }
+
+    function formatSelectionConfig() {
+      const val = document.getElementById('modalSelectionConfig').value.trim();
+      if (!val) return;
+      try {
+        const obj = JSON.parse(val);
+        document.getElementById('modalSelectionConfig').value = JSON.stringify(obj, null, 2);
+      } catch (e) {
+        alert('Invalid JSON');
+      }
+    }
+
+    function formatDefaultConfig() {
+      const val = document.getElementById('modalDefaultConfig').value.trim();
+      if (!val) return;
+      try {
+        const obj = JSON.parse(val);
+        document.getElementById('modalDefaultConfig').value = JSON.stringify(obj, null, 2);
+      } catch (e) {
+        alert('Invalid JSON');
+      }
     }
 
     async function saveUser() {
@@ -635,10 +732,32 @@
         }
       } else {
         const fingerprint = document.getElementById('modalFingerprint').value;
+        const configStr = document.getElementById('modalSelectionConfig').value.trim();
+        let selectionConfig = null;
+        if (configStr) {
+          try {
+            selectionConfig = JSON.parse(configStr);
+          } catch (e) {
+            alert('JSON 格式错误，请检查');
+            return;
+          }
+        }
+
+        const defaultConfigStr = document.getElementById('modalDefaultConfig').value.trim();
+        let defaultConfig = null;
+        if (defaultConfigStr) {
+          try {
+            defaultConfig = JSON.parse(defaultConfigStr);
+          } catch (e) {
+            alert('JSON 格式错误，请检查');
+            return;
+          }
+        }
+
         const res = await fetch(`/api/admin/users/${editingId}`, {
           method: 'PUT',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ expirationTime, fingerprint })
+          body: JSON.stringify({ expirationTime, fingerprint, selectionConfig, defaultConfig })
         });
         const data = await res.json();
         if (data.success) {

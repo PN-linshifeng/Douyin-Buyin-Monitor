@@ -11,7 +11,7 @@ const ADMIN_FILE = path.join(__dirname, 'admin.json');
 
 async function initDB() {
 	try {
-		await sequelize.sync({alter: true});
+		await sequelize.sync();
 		console.log('Database synced.');
 
 		// Check if data exists

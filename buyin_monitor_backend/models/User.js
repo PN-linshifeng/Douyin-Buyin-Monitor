@@ -29,7 +29,14 @@ const User = sequelize.define(
 		},
 		defaultConfig: {
 			type: DataTypes.TEXT,
-			defaultValue: JSON.stringify(DEFAULT_SELECTION_CONFIG),
+			get() {
+				const rawValue = this.getDataValue('defaultConfig');
+				try {
+					return rawValue ? JSON.parse(rawValue) : DEFAULT_SELECTION_CONFIG;
+				} catch (e) {
+					return DEFAULT_SELECTION_CONFIG;
+				}
+			},
 		},
 	},
 	{

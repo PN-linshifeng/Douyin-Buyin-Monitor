@@ -6,6 +6,7 @@ const Config = require('../models/Config');
 const RenewalLog = require('../models/RenewalLog');
 const LoginLog = require('../models/LoginLog');
 const {encrypt, decrypt} = require('../utils/crypto');
+const DEFAULT_SELECTION_CONFIG = require('../utils/default_config');
 
 // Middleware: 检查管理员权限
 function requireAdmin(req, res, next) {
@@ -71,6 +72,11 @@ router.post('/logout', (req, res) => {
 	res.json({success: true});
 });
 
+// 3.5 获取默认 Selection Config
+router.get('/default-selection-config', requireAdmin, (req, res) => {
+	res.json({success: true, data: DEFAULT_SELECTION_CONFIG});
+});
+
 // ===========================
 // 用户管理 (Users)
 // ===========================
@@ -93,6 +99,14 @@ router.get('/users', requireAdmin, async (req, res) => {
 				updateTime: u.updatedAt,
 				expirationTime: u.expirationTime,
 				fingerprint: u.fingerprint || '',
+				selectionConfig: (() => {
+					try {
+						return u.selectionConfig ? JSON.parse(u.selectionConfig) : null;
+					} catch (e) {
+						return null;
+					}
+				})(),
+				defaultConfig: u.defaultConfig,
 			};
 		});
 		res.json({success: true, data: safeUsers});
@@ -135,7 +149,8 @@ router.post('/users', requireAdmin, async (req, res) => {
 // 6. 修改用户 (主要是过期时间)
 router.put('/users/:id', requireAdmin, async (req, res) => {
 	const {id} = req.params;
-	const {expirationTime, fingerprint} = req.body;
+	const {expirationTime, fingerprint, selectionConfig, defaultConfig} =
+		req.body;
 
 	try {
 		const user = await User.findByPk(id);
@@ -147,6 +162,28 @@ router.put('/users/:id', requireAdmin, async (req, res) => {
 		// }
 		if (fingerprint !== undefined) {
 			user.fingerprint = fingerprint;
+		}
+		if (selectionConfig !== undefined) {
+			// 如果传 null，则清空（或设为默认，视需求而定，这里设为空字符串或 null）
+			if (selectionConfig === null) {
+				user.selectionConfig = null;
+			} else {
+				// 确保存入的是 JSON 字符串
+				user.selectionConfig =
+					typeof selectionConfig === 'string'
+						? selectionConfig
+						: JSON.stringify(selectionConfig);
+			}
+		}
+		if (defaultConfig !== undefined) {
+			if (defaultConfig === null) {
+				user.defaultConfig = null;
+			} else {
+				user.defaultConfig =
+					typeof defaultConfig === 'string'
+						? defaultConfig
+						: JSON.stringify(defaultConfig);
+			}
 		}
 
 		await user.save();
