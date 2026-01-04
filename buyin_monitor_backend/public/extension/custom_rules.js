@@ -145,7 +145,7 @@
                 => <span style="color: ${rule.color || '#fff'}">${
 				rule.msg
 			}</span>
-                [${rule.status || 'normal'}]
+                [${getStatusName(rule.status || 'normal')}]
             `;
 
 			const delBtn = document.createElement('button');
@@ -168,22 +168,27 @@
 			card_share: '商品卡-占比(%)',
 			card_daily: '商品卡-日销',
 			card_price: '商品卡-客单价',
+			card_buy_rate: '商品卡-浏览购买率(%)', // 新增: 浏览购买率指标
 			live_vol: '直播-销量',
 			live_share: '直播-占比(%)',
 			live_daily: '直播-日销',
 			live_price: '直播-客单价',
+			live_buy_rate: '直播-浏览购买率(%)',
 			video_vol: '短视频-销量',
 			video_share: '短视频-占比(%)',
 			video_daily: '短视频-日销',
 			video_price: '短视频-客单价',
+			video_buy_rate: '短视频-浏览购买率(%)',
 			imageText_vol: '图文-销量',
 			imageText_share: '图文-占比(%)',
 			imageText_daily: '图文-日销',
 			imageText_price: '图文-客单价',
+			imageText_buy_rate: '图文-浏览购买率(%)',
 			bindShop_vol: '橱窗-销量',
 			bindShop_share: '橱窗-占比(%)',
 			bindShop_daily: '橱窗-日销',
 			bindShop_price: '橱窗-客单价',
+			bindShop_buy_rate: '橱窗-浏览购买率(%)',
 			liveSpec: '直播规格(差值)',
 			liveSalesDiff: '直播人均出单数',
 			totalSales: '总销量',
@@ -192,6 +197,16 @@
 			cardDaily: '商品卡日销',
 		};
 		return map[key] || key;
+	}
+
+	function getStatusName(status) {
+		const map = {
+			good: '推荐',
+			passed: '通过筛选',
+			normal: '一般',
+			bad: '不推荐',
+		};
+		return map[status] || status;
 	}
 
 	function renderOverallList(container) {
@@ -221,10 +236,10 @@
 			}
 
 			// Criteria (e.g., Good >= 3)
-			if (c.good) desc.push(`Good >= ${c.good}`);
-			if (c.passed) desc.push(`Passed >= ${c.passed}`);
-			if (c.normal) desc.push(`Normal >= ${c.normal}`);
-			if (c.bad) desc.push(`Bad >= ${c.bad}`);
+			if (c.good) desc.push(`推荐 >= ${c.good}`);
+			if (c.passed) desc.push(`通过筛选 >= ${c.passed}`);
+			if (c.normal) desc.push(`一般 >= ${c.normal}`);
+			if (c.bad) desc.push(`不推荐 >= ${c.bad}`);
 
 			const info = document.createElement('div');
 			info.style.flex = '1';
@@ -238,7 +253,7 @@
 										: rule.result === 'passed'
 										? '#faad14'
 										: '#ffffff'
-								}">${rule.result}</strong>
+								}">${getStatusName(rule.result)}</strong>
             `;
 
 			const delBtn = document.createElement('button');
@@ -313,30 +328,35 @@
                             <option value="card_share">商品卡-销售占比(%)</option>
                             <option value="card_daily">商品卡-日均销售(单)</option>
                             <option value="card_price">商品卡-平均客单价</option>
+                            <option value="card_buy_rate">商品卡-浏览购买率(%)</option>
                         </optgroup>
                         <optgroup label="直播">
                             <option value="live_vol">直播-销售量</option>
                             <option value="live_share">直播-销售占比(%)</option>
                             <option value="live_daily">直播-日均销售(单)</option>
                             <option value="live_price">直播-平均客单价</option>
+                            <option value="live_buy_rate">直播-浏览购买率(%)</option>
                         </optgroup>
                         <optgroup label="短视频">
                             <option value="video_vol">短视频-销售量</option>
                             <option value="video_share">短视频-销售占比(%)</option>
                             <option value="video_daily">短视频-日均销售(单)</option>
                             <option value="video_price">短视频-平均客单价</option>
+                            <option value="video_buy_rate">短视频-浏览购买率(%)</option>
                         </optgroup>
                         <optgroup label="图文">
                             <option value="imageText_vol">图文-销售量</option>
                             <option value="imageText_share">图文-销售占比(%)</option>
                             <option value="imageText_daily">图文-日均销售(单)</option>
                             <option value="imageText_price">图文-平均客单价</option>
+                            <option value="imageText_buy_rate">图文-浏览购买率(%)</option>
                         </optgroup>
                         <optgroup label="橱窗">
                             <option value="bindShop_vol">橱窗-销售量</option>
                             <option value="bindShop_share">橱窗-销售占比(%)</option>
                             <option value="bindShop_daily">橱窗-日均销售(单)</option>
                             <option value="bindShop_price">橱窗-平均客单价</option>
+                            <option value="bindShop_buy_rate">橱窗-浏览购买率(%)</option>
                         </optgroup>
                         <optgroup label="其他">
                             <option value="liveSpec">直播规格(差值)</option>
@@ -365,10 +385,10 @@
                  <div class="dm-form-group" style="flex:1; min-width: 100px;">
                     <label>颜色 & 状态</label>
                     <select id="cr-status" class="dm-input">
-                        <option value="bad" style="color:var(--dm-danger)">Bad (Red)</option>
-                        <option value="passed" style="color:var(--dm-warning)">Passed (Orange)</option>
-                        <option value="good" style="color:var(--dm-success)">Good (Green)</option>
-                        <option value="normal" style="color:#ffffff">Normal (White)</option>
+                        <option value="good" style="color:var(--dm-success)">推荐 (Green)</option>
+                        <option value="passed" style="color:var(--dm-warning)">通过筛选 (Orange)</option>
+                        <option value="normal" style="color:#ffffff">一般 (White)</option>
+												<option value="bad" style="color:var(--dm-danger)">不推荐 (Red)</option>
                     </select>
                 </div>
             `;
@@ -532,7 +552,7 @@
                     <select id="or-result" class="dm-input">
                         <option value="good" style="color:var(--dm-success)">推荐 (Good)</option>
                         <option value="passed" style="color:var(--dm-warning)">通过 (Passed)</option>
-                        <option value="normal" style="color:#ffffff">普通 (Normal)</option>
+                        <option value="normal" style="color:#ffffff">一般 (Normal)</option>
                         <option value="bad" style="color:var(--dm-danger)">不推荐 (Bad)</option>
                     </select>
                 </div>

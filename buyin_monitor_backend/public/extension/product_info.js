@@ -194,6 +194,7 @@
 						<th style="text-align: center;">销售占比</th>
 						<th style="text-align: center;">日均销售单数</th>
 						<th style="text-align: center;">平均客单价</th>
+						<th style="text-align: center;">浏览购买率</th> <!-- 新增: 浏览购买率列 -->
 					</tr>
 				</thead>
 				<tbody style="text-align: center;">
@@ -212,6 +213,7 @@
 								: '')
 						}">${rowCard.daily}</td>
 						<td style="${rowCard.priceStyle || ''}">${rowCard.price}</td>
+						<td>${rowCard.buyRate}</td>
 					</tr>
 					<tr>
 						<td style="color: #4ea1ff;">${rowLive.name}</td>
@@ -219,6 +221,7 @@
 						<td style="${rowLive.shareStyle || ''}">${rowLive.share}</td>
 						<td style="${rowLive.dailyStyle || ''}">${rowLive.daily}</td>
 						<td style="${rowLive.priceStyle || ''}">${rowLive.price}</td>
+						<td>${rowLive.buyRate}</td>
 					</tr>
 					<tr>
 						<td style="color: #4ea1ff;">${rowVideo.name}</td>
@@ -226,6 +229,7 @@
 						<td style="${rowVideo.shareStyle || ''}">${rowVideo.share}</td>
 						<td style="${rowVideo.dailyStyle || ''}">${rowVideo.daily}</td>
 						<td style="${rowVideo.priceStyle || ''}">${rowVideo.price}</td>
+						<td>${rowVideo.buyRate}</td>
 					</tr>
 					<tr>
 						<td style="color: #4ea1ff;">${rowImage.name}</td>
@@ -233,6 +237,7 @@
 						<td style="${rowImage.shareStyle || ''}">${rowImage.share}</td>
 						<td style="${rowImage.dailyStyle || ''}">${rowImage.daily}</td>
 						<td style="${rowImage.priceStyle || ''}">${rowImage.price}</td>
+						<td>${rowImage.buyRate}</td>
 					</tr>
 					<tr>
 						<td style="color: #4ea1ff;">${rowShop.name}</td>
@@ -240,6 +245,7 @@
 						<td style="${rowShop.shareStyle || ''}">${rowShop.share}</td>
 						<td style="${rowShop.dailyStyle || ''}">${rowShop.daily}</td>
 						<td style="${rowShop.priceStyle || ''}">${rowShop.price}</td>
+						<td>${rowShop.buyRate}</td>
 					</tr>
 				</tbody>
 			</table>

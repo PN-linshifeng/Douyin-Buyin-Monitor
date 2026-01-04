@@ -257,15 +257,17 @@ function calculateRawMetrics(data, days, productPrice) {
 	const promo = data?.model?.promotion_data?.calculate_data || {};
 	const content = data?.model?.content_data?.calculate_data || {};
 
-	// 基础数据
+	// 基础数据: 从 promotion_data 获取总数据，从 content_data 获取细分渠道数据
 	const totalSales = promo.sales || 0;
 	const totalAmount = promo.sales_amount || 0;
+	const totalPv = promo.pv || 0; // 总浏览量 (PV)
 
 	const liveSales = content.live_sales || 0;
 	const videoSales = content.video_sales || 0;
 	const imageTextSales = content.image_text_sales || 0;
 	const bindShopSales = content.bind_shop_sales || 0;
 
+	// 商品卡销量 = 总销量 - (直播+短视频+图文+橱窗)
 	const productCardSales =
 		totalSales - liveSales - videoSales - imageTextSales - bindShopSales;
 
@@ -276,6 +278,15 @@ function calculateRawMetrics(data, days, productPrice) {
 
 	const productCardAmount =
 		totalAmount - liveAmount - videoAmount - imageTextAmount - bindShopAmount;
+
+	// 提取各渠道 PV (浏览量)
+	const livePv = content.live_pv || 0;
+	const videoPv = content.video_pv || 0;
+	const imageTextPv = content.image_text_pv || 0;
+	const bindShopPv = content.bind_shop_pv || 0;
+
+	// 商品卡 PV = 总 PV - (直播+短视频+图文+橱窗) 的 PV 之和
+	const productCardPv = totalPv - livePv - videoPv - imageTextPv - bindShopPv;
 
 	// 辅助
 	const safeDiv = (a, b) => (b === 0 ? 0 : a / b);
@@ -315,11 +326,30 @@ function calculateRawMetrics(data, days, productPrice) {
 			name: '商品卡',
 			vol: productCardSales,
 			amt: productCardAmount,
+			pv: productCardPv,
 		},
-		{key: 'live', name: '直播', vol: liveSales, amt: liveAmount},
-		{key: 'video', name: '短视频', vol: videoSales, amt: videoAmount},
-		{key: 'imageText', name: '图文', vol: imageTextSales, amt: imageTextAmount},
-		{key: 'bindShop', name: '橱窗', vol: bindShopSales, amt: bindShopAmount},
+		{key: 'live', name: '直播', vol: liveSales, amt: liveAmount, pv: livePv},
+		{
+			key: 'video',
+			name: '短视频',
+			vol: videoSales,
+			amt: videoAmount,
+			pv: videoPv,
+		},
+		{
+			key: 'imageText',
+			name: '图文',
+			vol: imageTextSales,
+			amt: imageTextAmount,
+			pv: imageTextPv,
+		},
+		{
+			key: 'bindShop',
+			name: '橱窗',
+			vol: bindShopSales,
+			amt: bindShopAmount,
+			pv: bindShopPv,
+		},
 	];
 
 	const rawChannels = [];
@@ -329,18 +359,23 @@ function calculateRawMetrics(data, days, productPrice) {
 		const sharePct = shareRatio * 100;
 		const daily = getDaily(ch.vol);
 		const price = getPriceNum(ch.amt, ch.vol);
+		// 计算浏览购买率: 销量 / PV
+		const buyRateRatio = safeDiv(ch.vol, ch.pv);
+		const buyRatePct = buyRateRatio * 100;
 
-		// Populate metrics
+		// Populate metrics (用于规则匹配)
 		metrics[`${ch.key}Vol`] = ch.vol;
 		metrics[`${ch.key}Share`] = sharePct;
 		metrics[`${ch.key}Daily`] = daily;
 		metrics[`${ch.key}Price`] = price;
+		metrics[`${ch.key}BuyRate`] = buyRatePct;
 
-		// snake_case aliases
+		// snake_case aliases (支持旧版或特定风格配置)
 		metrics[`${ch.key}_vol`] = ch.vol;
 		metrics[`${ch.key}_share`] = sharePct;
 		metrics[`${ch.key}_daily`] = daily;
 		metrics[`${ch.key}_price`] = price;
+		metrics[`${ch.key}_buy_rate`] = buyRatePct;
 
 		rawChannels.push({
 			name: ch.name,
@@ -349,6 +384,7 @@ function calculateRawMetrics(data, days, productPrice) {
 			share: sharePct.toFixed(2) + '%',
 			daily: daily.toFixed(2),
 			price: price.toFixed(2),
+			buyRate: buyRatePct.toFixed(2) + '%',
 		});
 	});
 

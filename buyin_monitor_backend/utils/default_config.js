@@ -162,12 +162,12 @@ const DEFAULT_SELECTION_CONFIG = {
 			html: '<span style="color:#25c260; font-weight:bold;">👍 带利润的好品！</span>',
 		},
 		passed: {
-			html: '<span style="color:#25c260; font-weight:bold;">✅ 已通过初筛</span>',
-		},
-		bad: {
-			html: '<span style="color:#ff4d4f; font-weight:bold;">⚠️ 出单少且亏，请谨慎选择！</span>',
+			html: '<span style="color:#faad14; font-weight:bold;">✅ 已通过初筛</span>',
 		},
 		normal: {html: '<span style="color:#333; font-weight:bold;">正常</span>'},
+		bad: {
+			html: '<span style="color:#ff4d4f; font-weight:bold;">⚠️ 请谨慎选择！</span>',
+		},
 	},
 };
 
