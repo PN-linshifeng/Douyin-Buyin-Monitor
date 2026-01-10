@@ -6,6 +6,7 @@ const path = require('path');
 const statsRouter = require('./routes/stats');
 const adminRouter = require('./routes/admin'); // 引入 Admin 路由
 const extensionRouter = require('./routes/extension'); // 引入 Extension 路由
+const mailRouter = require('./routes/mail'); // 引入 Mail 路由
 const initDB = require('./init_db');
 // User 已移至 routes/extension.js 和 routes/admin.js，此处不再需要
 // Admin, Config 已移至 routes/admin.js，此处不再需要
@@ -43,6 +44,9 @@ app.use('/api/extension', extensionRouter);
 
 // 注册管理员路由 (API: /api/admin/*)
 app.use('/api/admin', adminRouter);
+
+// 注册邮件路由 (API: /api/mail/send)
+app.use('/api/mail', mailRouter);
 
 // ===========================
 // Admin API 已移至 routes/admin.js
