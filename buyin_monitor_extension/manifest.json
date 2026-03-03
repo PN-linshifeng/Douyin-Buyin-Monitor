@@ -15,7 +15,7 @@
 	"content_scripts": [
 		{
 			"matches": ["*://buyin.jinritemai.com/*"],
-			"js": ["plugins/fp.js", "ui.js", "content.js"],
+			"js": ["plugins/fp.js", "utils.js", "ui.js", "content.js"],
 			"css": ["ui.css"],
 			"run_at": "document_end"
 		},
@@ -28,7 +28,7 @@
 	],
 	"web_accessible_resources": [
 		{
-			"resources": ["injected.js", "ui.js", "utils.js", "images/logo.jpeg"],
+			"resources": ["injected.js", "ui.js", "images/logo.png"],
 			"matches": ["*://buyin.jinritemai.com/*"]
 		}
 	]

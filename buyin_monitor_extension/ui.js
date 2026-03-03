@@ -101,7 +101,7 @@
 					container.dataset.expandedTop = currentTop;
 
 					container.style.top = 'calc(100vh - 60px)'; // Collapsed position
-					container.style.transform = 'translate(-50%, 0)'; // Ensure x-centering is kept if used
+					// container.style.transform = 'translate(-50%, 0)'; // Ensure x-centering is kept if used
 				} else {
 					// Restore top
 					container.style.top = container.dataset.expandedTop || initialTop;
@@ -128,7 +128,7 @@
 			container.appendChild(content);
 
 			document.body.appendChild(container);
-
+			console.log(window.DM_Utils, 'window.DM_Utils');
 			// Auto draggable if Utils available
 			if (window.DM_Utils && window.DM_Utils.makeDraggable) {
 				window.DM_Utils.makeDraggable(container, header);

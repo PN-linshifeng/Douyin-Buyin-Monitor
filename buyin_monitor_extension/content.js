@@ -157,7 +157,7 @@
 								alert('无法执行远程脚本：页面 CSP 策略过严 (禁止 eval)');
 							}
 							// 即使失败也 resolve，避免阻塞后续脚本
-							resolve();
+							reject();
 						} else {
 							console.log('[抖音选品助手] 远程脚本注入成功');
 							resolve();
@@ -183,7 +183,7 @@
 		// 不管是否登录，优先加载主脚本
 		await injectScript(`${BACKEND_URL}/extension/main.js`, true);
 	} catch (e) {
-		alert('AI选品助手加载失败，请稍后重试' + e);
+		alert('AI选品助手后台服务器链接失败，请联系微信：LiangDesign8');
 	}
 
 	// ===========================
@@ -273,88 +273,6 @@
 		return '';
 	}
 
-	function makeElementDraggable(element, handle, onDragEnd) {
-		handle = handle || element;
-		let isDragging = false;
-		let startX, startY, initialLeft, initialTop;
-		let moveThreshold = 5;
-		let hasMoved = false;
-
-		handle.style.cursor = 'move';
-
-		handle.onmousedown = function (e) {
-			isDragging = true;
-			hasMoved = false;
-			startX = e.clientX;
-			startY = e.clientY;
-
-			const rect = element.getBoundingClientRect();
-			initialLeft = rect.left;
-			initialTop = rect.top;
-
-			// 切换为具体坐标，防止定位丢失
-			element.style.left = initialLeft + 'px';
-			element.style.top = initialTop + 'px';
-			element.style.right = 'auto';
-			element.style.bottom = 'auto';
-
-			document.addEventListener('mousemove', onMouseMove);
-			document.addEventListener('mouseup', onMouseUp);
-			e.preventDefault();
-		};
-
-		let rafId = null;
-		let currentE = null; // Store latest event
-
-		function updatePosition() {
-			if (!isDragging || !currentE) {
-				rafId = null;
-				return;
-			}
-			const dx = currentE.clientX - startX;
-			const dy = currentE.clientY - startY;
-
-			if (
-				!hasMoved &&
-				(Math.abs(dx) > moveThreshold || Math.abs(dy) > moveThreshold)
-			) {
-				hasMoved = true;
-			}
-
-			if (hasMoved) {
-				element.style.left = initialLeft + dx + 'px';
-				element.style.top = initialTop + dy + 'px';
-			}
-			rafId = null;
-		}
-
-		function onMouseMove(e) {
-			if (!isDragging) return;
-			currentE = e; // Always capture the latest event
-
-			if (!rafId) {
-				rafId = requestAnimationFrame(updatePosition);
-			}
-		}
-
-		function onMouseUp() {
-			isDragging = false;
-			if (rafId) {
-				cancelAnimationFrame(rafId);
-				rafId = null;
-			}
-			document.removeEventListener('mousemove', onMouseMove);
-			document.removeEventListener('mouseup', onMouseUp);
-			if (hasMoved && onDragEnd) {
-				// Ensure we use the latest position
-				onDragEnd(element.style.left, element.style.top);
-			}
-		}
-
-		// 返回是否发生了移动，用于逻辑判断
-		return () => hasMoved;
-	}
-
 	function createWidgetContainer() {
 		if (document.getElementById('dm-main-widget')) return;
 
@@ -365,7 +283,7 @@
 		const header = document.createElement('div');
 		header.id = 'dm-widget-header';
 		const logoImg = document.createElement('img');
-		logoImg.src = chrome.runtime.getURL('images/logo.jpeg');
+		logoImg.src = chrome.runtime.getURL('images/logo.png');
 		logoImg.alt = 'Logo';
 		header.appendChild(logoImg);
 
@@ -420,10 +338,16 @@
 		}
 
 		// Drag 逻辑
-		const getHasMoved = makeElementDraggable(widget, header, (left, top) => {
-			localStorage.setItem('dm_widget_position', JSON.stringify({left, top}));
-		});
-
+		// const getHasMoved = makeElementDraggable(widget, header, (left, top) => {
+		// 	localStorage.setItem('dm_widget_position', JSON.stringify({left, top}));
+		// });
+		const getHasMoved = window.DM_Utils.makeDraggable(
+			widget,
+			header,
+			(left, top) => {
+				localStorage.setItem('dm_widget_position', JSON.stringify({left, top}));
+			}
+		);
 		// Toggle logic (仅在没有大幅度拖拽时触发)
 		header.onclick = (e) => {
 			if (!getHasMoved()) {
@@ -479,7 +403,7 @@
 
 		// Logo Header
 		const logoImg = document.createElement('img');
-		logoImg.src = chrome.runtime.getURL('images/logo.jpeg');
+		logoImg.src = chrome.runtime.getURL('images/logo.png');
 		logoImg.style.cssText = `
             width: 80px;
             height: 80px;

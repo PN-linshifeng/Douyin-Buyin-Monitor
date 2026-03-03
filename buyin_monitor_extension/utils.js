@@ -43,13 +43,17 @@
 		 * 让元素可拖拽
 		 * @param {HTMLElement} element 要移动的元素
 		 * @param {HTMLElement} handle 触发拖拽的手柄元素
+		 * @param {Function} onDragEnd 拖拽结束时的回调，签名为 (left, top)
+		 * @returns {Function} () => hasMoved，用于判断是否发生过拖拽
 		 */
-		makeDraggable: function (element, handle) {
+		makeDraggable: function (element, handle, onDragEnd) {
 			handle = handle || element;
 			handle.style.cursor = 'move';
 
 			let isDragging = false;
 			let startX, startY, initialLeft, initialTop;
+			let moveThreshold = 5;
+			let hasMoved = false;
 
 			handle.onmousedown = function (e) {
 				// 如果点击的是按钮或链接，不触发拖拽
@@ -57,6 +61,7 @@
 
 				e.preventDefault();
 				isDragging = true;
+				hasMoved = false;
 				startX = e.clientX;
 				startY = e.clientY;
 
@@ -85,8 +90,19 @@
 				}
 				const dx = currentE.clientX - startX;
 				const dy = currentE.clientY - startY;
-				element.style.left = initialLeft + dx + 'px';
-				element.style.top = initialTop + dy + 'px';
+
+				if (
+					!hasMoved &&
+					(Math.abs(dx) > moveThreshold || Math.abs(dy) > moveThreshold)
+				) {
+					hasMoved = true;
+				}
+
+				if (hasMoved) {
+					element.style.left = initialLeft + dx + 'px';
+					element.style.top = initialTop + dy + 'px';
+				}
+
 				rafId = null;
 			}
 
@@ -107,7 +123,14 @@
 				}
 				document.removeEventListener('mousemove', onMouseMove);
 				document.removeEventListener('mouseup', onMouseUp);
+
+				if (hasMoved && typeof onDragEnd === 'function') {
+					onDragEnd(element.style.left, element.style.top);
+				}
 			}
+
+			// 返回一个函数用于外部判断是否发生了拖拽
+			return () => hasMoved;
 		},
 
 		init: function () {
@@ -132,4 +155,5 @@
 
 	window.DM_Utils = DM_Utils;
 	DM_Utils.init();
+	console.log(window.DM_Utils, 'window.DM_Utils');
 })();
